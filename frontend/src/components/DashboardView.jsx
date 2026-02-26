@@ -23,6 +23,10 @@ export default function DashboardView({ state }) {
     const avgWaitTime = totalVehicles > 0 ? parseFloat((totalWaitTime / totalVehicles).toFixed(1)) : 0;
     const maxWaitTime = totalVehicles > 0 ? parseFloat((Math.max(...state.vehicles.map(v => v.wait_time)) * 0.8).toFixed(1)) : 0;
 
+    const actualEmissions = totalWaitTime * 0.00025;
+    const badEmissions = totalVehicles * 90 * 0.00025;
+    const goodEmissions = totalVehicles * 15 * 0.00025;
+
     setHistory(prev => {
       // Avoid duplicate points for the same step (just simpler)
       if (prev.length > 0 && prev[prev.length - 1].step === state.step) {
@@ -33,7 +37,10 @@ export default function DashboardView({ state }) {
         wait: parseFloat(avgWaitTime), 
         maxWait: maxWaitTime,
         vehicles: totalVehicles, 
-        step: state.step 
+        step: state.step,
+        actualCO2: parseFloat(actualEmissions.toFixed(3)),
+        badCO2: parseFloat(badEmissions.toFixed(3)),
+        goodCO2: parseFloat(goodEmissions.toFixed(3))
       };
       const newData = [...prev, newPoint];
       if (newData.length > 20) return newData.slice(newData.length - 20);
@@ -125,16 +132,21 @@ export default function DashboardView({ state }) {
       const bucketTime = new Date(now);
       bucketTime.setMinutes(roundedMinutes);
       bucketTime.setSeconds(0);
-      currentDisplayHistory = [{ time: bucketTime.toLocaleTimeString([], { hour12: true, hour: 'numeric', minute: '2-digit' }), wait: parseFloat(avgWaitTime), maxWait: maxWaitTime, vehicles: totalVehicles }];
-  }
+      
+      const actualEmissions = totalWaitTime * 0.00025;
+      const badEmissions = totalVehicles * 90 * 0.00025;
+      const goodEmissions = totalVehicles * 15 * 0.00025;
 
-  // Carbon tracking metric
-  // Assumptions: Avg idle vehicle emits ~0.015kg CO2 per minute (0.00025kg per sec)
-  // Baseline static timer wait time is roughly 50% worse than RL theoretically.
-  // We'll calculate a "CO2 saved" estimate comparing RL total_wait to 1.5x total_wait. 
-  const baselineWaitExpected = totalWaitTime * 1.5;
-  const waitSecondsSaved = baselineWaitExpected - totalWaitTime;
-  const co2SavedKg = (waitSecondsSaved * 0.00025).toFixed(3);
+      currentDisplayHistory = [{ 
+        time: bucketTime.toLocaleTimeString([], { hour12: true, hour: 'numeric', minute: '2-digit' }), 
+        wait: parseFloat(avgWaitTime), 
+        maxWait: maxWaitTime, 
+        vehicles: totalVehicles,
+        actualCO2: parseFloat(actualEmissions.toFixed(3)),
+        badCO2: parseFloat(badEmissions.toFixed(3)),
+        goodCO2: parseFloat(goodEmissions.toFixed(3))
+      }];
+  }
 
   // Calculate generic congestion level
   let congestionLevel = "Low";
@@ -163,12 +175,6 @@ export default function DashboardView({ state }) {
           icon={<Clock className="text-amber-400" />} 
           trend={waitTrendStr}
           trendColor={waitTrendColor}
-        />
-        <MetricCard 
-          title="Emissions Mitigated" 
-          value={`${co2SavedKg}kg`} 
-          icon={<Activity className="text-green-500" />} 
-          subtitle="Estimated CO2 saved"
         />
         <MetricCard 
           title="Max Queue Wait" 
@@ -296,6 +302,31 @@ export default function DashboardView({ state }) {
                 No vehicles on road
               </div>
             )}
+          </div>
+        </div>
+
+        <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 backdrop-blur-sm lg:col-span-2">
+          <h3 className="text-lg font-medium text-zinc-200 mb-6 flex justify-between items-center">
+             Real-Time CO2 Emissions 
+             <span className="text-xs text-zinc-500 font-normal">Actual vs Real-life Baselines (kg CO2)</span>
+          </h3>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={currentDisplayHistory}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+                <XAxis dataKey="time" stroke="#a1a1aa" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '8px' }}
+                  itemStyle={{ color: '#e4e4e7' }}
+                  labelStyle={{ color: '#a1a1aa', marginBottom: '8px' }}
+                />
+                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }}/>
+                <Line name="Actual Emissions (RL)" type="monotone" dataKey="actualCO2" stroke="#3b82f6" strokeWidth={3} dot={{ fill: '#3b82f6', r: 4 }} isAnimationActive={false} />
+                <Line name="Poor Traffic Flow (Real-life)" type="monotone" dataKey="badCO2" stroke="#ef4444" strokeWidth={2} strokeDasharray="5 5" dot={false} isAnimationActive={false} />
+                <Line name="Optimal Traffic Flow (Real-life)" type="monotone" dataKey="goodCO2" stroke="#10b981" strokeWidth={2} strokeDasharray="5 5" dot={false} isAnimationActive={false} />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>
