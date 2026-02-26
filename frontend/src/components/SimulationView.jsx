@@ -100,46 +100,96 @@ export default function SimulationView({ state }) {
         ctx.save();
         ctx.translate(x, y);
         ctx.rotate(dir * Math.PI / 180);
+        
         ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-        ctx.beginPath();
-        if (type === 'straight') {
+        
+        // Helper closures to draw paths cleanly
+        const pathStraight = () => {
             ctx.moveTo(-6, 20); ctx.lineTo(6, 20); ctx.lineTo(6, -5); 
             ctx.lineTo(14, -5); ctx.lineTo(0, -25); ctx.lineTo(-14, -5); ctx.lineTo(-6, -5);
-        } else if (type === 'left') {
+        };
+        const pathLeft = () => {
             ctx.moveTo(-6, 20); ctx.lineTo(6, 20); ctx.lineTo(6, 4); ctx.lineTo(-10, 4);
             ctx.lineTo(-10, -4); ctx.lineTo(-4, -4); ctx.lineTo(-14, -18); ctx.lineTo(-24, -4); ctx.lineTo(-18, -4); ctx.lineTo(-18, 12); ctx.lineTo(-6, 12);
+        };
+        const pathRight = () => {
+             ctx.moveTo(-6, 20); ctx.lineTo(6, 20); ctx.lineTo(6, 12); ctx.lineTo(18, 12);
+             ctx.lineTo(18, -4); ctx.lineTo(24, -4); ctx.lineTo(14, -18); ctx.lineTo(4, -4); ctx.lineTo(10, -4); ctx.lineTo(10, 4); ctx.lineTo(-6, 4);
+        };
+
+        ctx.beginPath();
+        if (type === 'straight') {
+            pathStraight();
+        } else if (type === 'left') {
+            pathLeft();
         } else if (type === 'right') {
-            ctx.moveTo(-6, 20); ctx.lineTo(6, 20); ctx.lineTo(6, 12); ctx.lineTo(18, 12);
+            pathRight();
+        } else if (type === 'straight_left') {
+            pathStraight();
+            ctx.closePath();
+            ctx.moveTo(-6, 4); ctx.lineTo(6, 4); 
+            ctx.lineTo(6, 4); ctx.lineTo(-10, 4);
+            ctx.lineTo(-10, -4); ctx.lineTo(-4, -4); ctx.lineTo(-14, -18); ctx.lineTo(-24, -4); ctx.lineTo(-18, -4); ctx.lineTo(-18, 12); ctx.lineTo(-6, 12);
+        } else if (type === 'straight_right') {
+            pathStraight();
+            ctx.closePath();
+            ctx.moveTo(-6, 4); ctx.lineTo(6, 4);
+            ctx.lineTo(6, 12); ctx.lineTo(18, 12);
             ctx.lineTo(18, -4); ctx.lineTo(24, -4); ctx.lineTo(14, -18); ctx.lineTo(4, -4); ctx.lineTo(10, -4); ctx.lineTo(10, 4); ctx.lineTo(-6, 4);
         }
         ctx.fill();
         ctx.restore();
     };
 
-    // When LHD, the 'crossing' lane is the right lane, so we swap left/right arrows visually
-    // The RL engine indices mean: 0.5 (inner crossing), 1.5 (straight), 2.5 (outer non-crossing)
-    const turnCross = lDir === -1 ? 'right' : 'left';
-    const turnNonCross = lDir === -1 ? 'left' : 'right';
+    // Driving Side Logic mapping
+    // Left-most lane: index 0.5 under RHD (inner), index 2.5 under LHD (outer)
+    // Middle lane (index 1.5): always straight.
+    // Right-most lane: index 2.5 under RHD (outer), index 0.5 under LHD (inner)
+    
+    // As per user request:
+    // LHD (lDir=-1): Left-most (outer, index 2.5) is left turn only. Right-most (inner, index 0.5) is straight + right.
+    // RHD (lDir=1): Left-most (inner, index 0.5) is straight + left. Right-most (outer, index 2.5) is right turn only.
+    
+    // In our coordinate system before drawing, 'innerArrow' is index 0.5 (physically closest to center meridian), 'outerArrow' is index 2.5 (closest to sidewalk)
+    let innerArrow, middleArrow, outerArrow;
+    if (lDir === 1) { // RHD
+        // inner (index 0.5, Left-most visually since road draws left-to-right relative to center)
+        innerArrow = 'straight_left'; 
+        middleArrow = 'straight';
+        // outer (index 2.5, Right-most visually)
+        outerArrow = 'right';
+    } else { // LHD
+        // For LHD, drawing order relies on `lDir = -1`. 
+        // Thus center.x - (lDir * 0.5 * laneW) becomes center.x + 0.5 * laneW -> meaning innerArrow is drawn on the physical RIGHT SIDE of the approach.
+        // Therefore, innerArrow is the Right-most lane visually.
+        innerArrow = 'straight_right';
+        middleArrow = 'straight';
+        // outerArrow (index 2.5) gets drawn at center.x + 2.5 * laneW, which is the physical LEFT SIDE.
+        // Therefore outerArrow is the Left-most lane visually.
+        outerArrow = 'left';
+    }
 
-    // Draw arrows for North incoming (pointing South, orientation 180)
-    drawArrow(center.x - lDir*2.5*laneW, center.y - hs - cwWidth - 60, 180, turnNonCross);
-    drawArrow(center.x - lDir*1.5*laneW, center.y - hs - cwWidth - 60, 180, 'straight');
-    drawArrow(center.x - lDir*0.5*laneW, center.y - hs - cwWidth - 60, 180, turnCross);
+    // Since we flipped `lDir` multiplication in the draws, the offsets naturally handle positioning left-to-right on screen!
+    
+    // North incoming (pointing South, orientation 180)
+    drawArrow(center.x - lDir*0.5*laneW, center.y - hs - cwWidth - 60, 180, innerArrow);
+    drawArrow(center.x - lDir*1.5*laneW, center.y - hs - cwWidth - 60, 180, middleArrow);
+    drawArrow(center.x - lDir*2.5*laneW, center.y - hs - cwWidth - 60, 180, outerArrow);
 
-    // Draw arrows for South incoming (pointing North, orientation 0)
-    drawArrow(center.x + lDir*2.5*laneW, center.y + hs + cwWidth + 60, 0, turnNonCross);
-    drawArrow(center.x + lDir*1.5*laneW, center.y + hs + cwWidth + 60, 0, 'straight');
-    drawArrow(center.x + lDir*0.5*laneW, center.y + hs + cwWidth + 60, 0, turnCross);
+    // South incoming (pointing North, orientation 0)
+    drawArrow(center.x + lDir*0.5*laneW, center.y + hs + cwWidth + 60, 0, innerArrow);
+    drawArrow(center.x + lDir*1.5*laneW, center.y + hs + cwWidth + 60, 0, middleArrow);
+    drawArrow(center.x + lDir*2.5*laneW, center.y + hs + cwWidth + 60, 0, outerArrow);
 
-    // Draw arrows for East incoming (pointing West, orientation -90)
-    drawArrow(center.x + hs + cwWidth + 60, center.y - lDir*2.5*laneW, -90, turnNonCross);
-    drawArrow(center.x + hs + cwWidth + 60, center.y - lDir*1.5*laneW, -90, 'straight');
-    drawArrow(center.x + hs + cwWidth + 60, center.y - lDir*0.5*laneW, -90, turnCross);
+    // East incoming (pointing West, orientation -90)
+    drawArrow(center.x + hs + cwWidth + 60, center.y - lDir*0.5*laneW, -90, innerArrow);
+    drawArrow(center.x + hs + cwWidth + 60, center.y - lDir*1.5*laneW, -90, middleArrow);
+    drawArrow(center.x + hs + cwWidth + 60, center.y - lDir*2.5*laneW, -90, outerArrow);
 
-    // Draw arrows for West incoming (pointing East, orientation 90)
-    drawArrow(center.x - hs - cwWidth - 60, center.y + lDir*2.5*laneW, 90, turnNonCross);
-    drawArrow(center.x - hs - cwWidth - 60, center.y + lDir*1.5*laneW, 90, 'straight');
-    drawArrow(center.x - hs - cwWidth - 60, center.y + lDir*0.5*laneW, 90, turnCross);
+    // West incoming (pointing East, orientation 90)
+    drawArrow(center.x - hs - cwWidth - 60, center.y + lDir*0.5*laneW, 90, innerArrow);
+    drawArrow(center.x - hs - cwWidth - 60, center.y + lDir*1.5*laneW, 90, middleArrow);
+    drawArrow(center.x - hs - cwWidth - 60, center.y + lDir*2.5*laneW, 90, outerArrow);
 
     // Map Phase to Green Lights
     const phase = state.phase;
@@ -322,14 +372,14 @@ export default function SimulationView({ state }) {
             ref={canvasRef} 
             className="rounded-2xl w-full h-full object-contain mix-blend-lighten"
           />
-          <div className="absolute top-6 left-6 flex items-center gap-3 bg-zinc-950/90 backdrop-blur-md px-5 py-2.5 rounded-full border border-zinc-800 shadow-xl">
+          <div className="absolute top-6 left-6 flex items-center gap-3 bg-zinc-950/90 backdrop-blur-md px-5 py-2.5 rounded-full border border-zinc-800 shadow-xl" title="T: Simulation Time Step&#10;Phase: Current Traffic Light Combination (0-3)">
             <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_12px_rgba(16,185,129,0.8)]" />
-            <span className="text-sm font-bold tracking-widest text-emerald-400">T: {state.step}</span>
+            <span className="text-sm font-bold tracking-widest text-emerald-400">T (Time): {state.step}</span>
             <div className="w-px h-4 bg-zinc-700 mx-1"></div>
-            <span className="text-sm font-mono text-zinc-400 font-medium">Phase: <span className="text-zinc-200">{state.phase}</span></span>
+            <span className="text-sm font-mono text-zinc-400 font-medium">Light Phase: <span className="text-zinc-200">{state.phase}</span></span>
           </div>
         </div>
-        <p className="text-zinc-500 text-sm font-medium">Real-time Intersection Visualization Engine</p>
+        <p className="text-zinc-500 text-sm font-medium">Real-time Intersection Visualization Engine. Hover HUD for details.</p>
       </div>
     </div>
   );

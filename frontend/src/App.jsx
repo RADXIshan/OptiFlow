@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import { Activity, LayoutDashboard, Settings } from 'lucide-react';
 import SimulationView from './components/SimulationView';
 import DashboardView from './components/DashboardView';
@@ -75,6 +76,7 @@ function MainLayout() {
 export default function App() {
   return (
     <BrowserRouter>
+      <Toaster theme="dark" position="bottom-right" />
       <MainLayout />
     </BrowserRouter>
   );

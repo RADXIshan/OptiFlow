@@ -1,22 +1,38 @@
 import React, { useState } from 'react';
 import { AlertTriangle, Power, Car, Map } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function Controls({ state }) {
   const [isUpdating, setIsUpdating] = useState(false);
   const handleStart = async () => {
-    await fetch('http://localhost:8000/api/simulation/start', { method: 'POST' });
+    try {
+      await fetch('http://localhost:8000/api/simulation/start', { method: 'POST' });
+      toast.success('Simulation Engine Started');
+    } catch (e) {
+      toast.error('Failed to start engine');
+    }
   };
 
   const handleStop = async () => {
-    await fetch('http://localhost:8000/api/simulation/stop', { method: 'POST' });
+    try {
+      await fetch('http://localhost:8000/api/simulation/stop', { method: 'POST' });
+      toast.error('Simulation Engine Halted');
+    } catch (e) {
+      toast.error('Failed to halt engine');
+    }
   };
 
   const handleSpawnAmbulance = async () => {
-    await fetch('http://localhost:8000/api/simulation/config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ traffic_density: 0.1, spawn_ambulance: true })
-    });
+    try {
+      await fetch('http://localhost:8000/api/simulation/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ traffic_density: 0.1, spawn_ambulance: true })
+      });
+      toast.warning('Emergency Vehicle Spawned');
+    } catch (e) {
+      toast.error('Failed to spawn vehicle');
+    }
   };
 
   const handleDriveSideToggle = async (side) => {
@@ -27,6 +43,9 @@ export default function Controls({ state }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ traffic_density: 0.1, drive_side: side })
       });
+      toast.info(`Switched to ${side}-hand drive`);
+    } catch (e) {
+      toast.error('Failed to update environment');
     } finally {
       setIsUpdating(false);
     }
