@@ -373,7 +373,7 @@ export default function SimulationView({ state }) {
             className="rounded-2xl w-full h-full object-contain mix-blend-lighten"
           />
           
-          <div className="absolute top-6 left-6 flex items-center gap-3 bg-zinc-950/90 backdrop-blur-md px-5 py-2.5 rounded-full border border-zinc-800 shadow-xl z-20" title="T: Simulation Time Step&#10;Phase: Current Traffic Light Combination (0-3)">
+          <div className="absolute top-6 left-6 flex items-center gap-3 bg-zinc-950/90 backdrop-blur-md px-5 py-2.5 rounded-full border border-zinc-800 shadow-xl z-20" title="T: Simulation Time Step&#10;Phase: Current Traffic Light Combination&#10;0: N-S (Straight/Right)&#10;1: N-S (Left Turn)&#10;2: E-W (Straight/Right)&#10;3: E-W (Left Turn)">
             <div className={`w-3 h-3 rounded-full ${state.is_running ? 'bg-emerald-500 animate-pulse shadow-[0_0_12px_rgba(16,185,129,0.8)]' : 'bg-red-500'}`} />
             <span className="text-sm font-bold tracking-widest text-emerald-400">T (Time): {state.step}</span>
             <div className="w-px h-4 bg-zinc-700 mx-1"></div>

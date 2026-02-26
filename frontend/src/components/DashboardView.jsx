@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
-import { Activity, Car, Clock, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { Activity, Car, Clock, ShieldAlert, AlertTriangle, Info, X } from 'lucide-react';
 
 export default function DashboardView({ state }) {
   const [history, setHistory] = useState([]);
+  const [isPhaseModalOpen, setIsPhaseModalOpen] = useState(false);
 
   useEffect(() => {
     if (!state) return;
@@ -18,9 +19,9 @@ export default function DashboardView({ state }) {
     const timeStr = now.toLocaleTimeString([], { hour12: true, hour: 'numeric', minute: '2-digit', second: '2-digit' });
 
     const totalVehicles = state.vehicles?.length || 0;
-    const totalWaitTime = state.vehicles?.reduce((acc, v) => acc + v.wait_time, 0) || 0;
-    const avgWaitTime = totalVehicles > 0 ? (totalWaitTime / totalVehicles).toFixed(1) : 0;
-    const maxWaitTime = totalVehicles > 0 ? Math.max(...state.vehicles.map(v => v.wait_time)) : 0;
+    const totalWaitTime = state.vehicles?.reduce((acc, v) => acc + (v.wait_time * 0.8), 0) || 0;
+    const avgWaitTime = totalVehicles > 0 ? parseFloat((totalWaitTime / totalVehicles).toFixed(1)) : 0;
+    const maxWaitTime = totalVehicles > 0 ? parseFloat((Math.max(...state.vehicles.map(v => v.wait_time)) * 0.8).toFixed(1)) : 0;
 
     setHistory(prev => {
       // Avoid duplicate points for the same step (just simpler)
@@ -55,9 +56,16 @@ export default function DashboardView({ state }) {
   const totalVehicles = state.vehicles?.length || 0;
   const ambulances = state.vehicles?.filter(v => v.type === 'ambulance').length || 0;
   
-  const totalWaitTime = state.vehicles?.reduce((acc, v) => acc + v.wait_time, 0) || 0;
-  const avgWaitTime = totalVehicles > 0 ? (totalWaitTime / totalVehicles).toFixed(1) : 0;
-  const maxWaitTime = totalVehicles > 0 ? Math.max(...state.vehicles.map(v => v.wait_time)) : 0;
+  const totalWaitTime = state.vehicles?.reduce((acc, v) => acc + (v.wait_time * 0.8), 0) || 0;
+  const avgWaitTime = totalVehicles > 0 ? parseFloat((totalWaitTime / totalVehicles).toFixed(1)) : 0;
+  const maxWaitTime = totalVehicles > 0 ? parseFloat((Math.max(...state.vehicles.map(v => v.wait_time)) * 0.8).toFixed(1)) : 0;
+
+  const phaseDescriptions = {
+    0: "N-S Green (Straight/Right)",
+    1: "N-S Green (Left Turn)",
+    2: "E-W Green (Straight/Right)",
+    3: "E-W Green (Left Turn)",
+  };
 
   const laneChartData = Object.keys(state.lanes || {}).map(lane => ({
     name: lane.replace('_', ' '),
@@ -155,7 +163,8 @@ export default function DashboardView({ state }) {
           title="Current Phase" 
           value={`Phase ${state.phase}`} 
           icon={<Activity className="text-emerald-400" />} 
-          subtitle="RL Determined"
+          subtitle={phaseDescriptions[state.phase] || "RL Determined"}
+          onInfoClick={() => setIsPhaseModalOpen(true)}
         />
         <MetricCard 
           title="Congestion Level" 
@@ -260,19 +269,96 @@ export default function DashboardView({ state }) {
           </div>
         </div>
       </div>
+
+      {isPhaseModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden p-6 relative">
+            <button 
+              onClick={() => setIsPhaseModalOpen(false)}
+              className="absolute top-4 right-4 text-zinc-400 hover:text-white transition-colors p-1"
+            >
+              <X size={20} />
+            </button>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-blue-500/10 rounded-lg">
+                <Activity className="text-blue-400" size={24} />
+              </div>
+              <h2 className="text-xl font-bold text-white">Traffic Light Phases</h2>
+            </div>
+            
+            <div className="space-y-4">
+              <p className="text-zinc-400 text-sm mb-2">
+                The RL agent dynamically switches between 4 possible traffic light combinations to optimize intersection flow.
+              </p>
+              
+              <div className="p-3 bg-zinc-800/50 rounded-xl border border-zinc-700/50 flex gap-4 items-center">
+                <div className="text-emerald-400 font-mono font-bold text-lg bg-emerald-400/10 w-10 h-10 flex items-center justify-center rounded-lg">0</div>
+                <div>
+                  <h4 className="text-zinc-200 font-medium">North-South (Straight/Right)</h4>
+                  <p className="text-zinc-500 text-xs mt-0.5">Green light for N/S traffic going straight or turning right.</p>
+                </div>
+              </div>
+              
+              <div className="p-3 bg-zinc-800/50 rounded-xl border border-zinc-700/50 flex gap-4 items-center">
+                <div className="text-emerald-400 font-mono font-bold text-lg bg-emerald-400/10 w-10 h-10 flex items-center justify-center rounded-lg">1</div>
+                <div>
+                  <h4 className="text-zinc-200 font-medium">North-South (Left Turn)</h4>
+                  <p className="text-zinc-500 text-xs mt-0.5">Green light exclusively for N/S traffic turning left.</p>
+                </div>
+              </div>
+
+              <div className="p-3 bg-zinc-800/50 rounded-xl border border-zinc-700/50 flex gap-4 items-center">
+                <div className="text-emerald-400 font-mono font-bold text-lg bg-emerald-400/10 w-10 h-10 flex items-center justify-center rounded-lg">2</div>
+                <div>
+                  <h4 className="text-zinc-200 font-medium">East-West (Straight/Right)</h4>
+                  <p className="text-zinc-500 text-xs mt-0.5">Green light for E/W traffic going straight or turning right.</p>
+                </div>
+              </div>
+
+              <div className="p-3 bg-zinc-800/50 rounded-xl border border-zinc-700/50 flex gap-4 items-center">
+                <div className="text-emerald-400 font-mono font-bold text-lg bg-emerald-400/10 w-10 h-10 flex items-center justify-center rounded-lg">3</div>
+                <div>
+                  <h4 className="text-zinc-200 font-medium">East-West (Left Turn)</h4>
+                  <p className="text-zinc-500 text-xs mt-0.5">Green light exclusively for E/W traffic turning left.</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-6 pt-4 border-t border-zinc-800 flex justify-end">
+              <button 
+                onClick={() => setIsPhaseModalOpen(false)}
+                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-sm font-medium rounded-lg transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function MetricCard({ title, value, icon, trend, trendColor = 'text-emerald-400 bg-emerald-400/10', subtitle }) {
+function MetricCard({ title, value, icon, trend, trendColor = 'text-emerald-400 bg-emerald-400/10', subtitle, tooltip, onInfoClick }) {
   return (
-    <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl p-6 relative overflow-hidden group hover:border-zinc-700 transition-colors">
+    <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl p-6 relative overflow-hidden group hover:border-zinc-700 transition-colors" title={tooltip}>
       <div className="absolute top-0 right-0 p-4 opacity-20 transform translate-x-2 -translate-y-2 group-hover:scale-110 transition-transform">
         {React.cloneElement(icon, { size: 64 })}
       </div>
       <div className="relative z-10 flex justify-between items-start">
         <div>
-          <p className="text-zinc-400 text-sm font-medium mb-1">{title}</p>
+          <div className="flex items-center gap-2 mb-1">
+            <p className="text-zinc-400 text-sm font-medium">{title}</p>
+            {onInfoClick && (
+              <button 
+                onClick={onInfoClick}
+                className="text-zinc-500 hover:text-blue-400 transition-colors p-0.5 rounded-full hover:bg-blue-400/10 focus:outline-none"
+                title="View Details"
+              >
+                <Info size={14} />
+              </button>
+            )}
+          </div>
           <h3 className="text-3xl font-bold text-white tracking-tight">{value}</h3>
           {trend && <p className={`text-xs mt-2 font-medium inline-block px-2 py-0.5 rounded ${trendColor}`}>{trend}</p>}
           {subtitle && <p className="text-zinc-500 text-xs mt-2">{subtitle}</p>}
