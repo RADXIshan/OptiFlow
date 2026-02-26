@@ -293,7 +293,7 @@ export default function SimulationView({ state }) {
             'car': '#3b82f6',
             'truck': '#8b5cf6', // purple
             'bus': '#f59e0b',
-            'bike': '#10b981',
+            'bike': '#ec4899',
             'ambulance': '#ef4444'
         };
         
@@ -375,7 +375,7 @@ export default function SimulationView({ state }) {
           <span className="text-sm font-medium text-zinc-300">Truck</span>
         </div>
         <div className="flex items-center gap-3">
-          <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full ml-1"></div>
+          <div className="w-2.5 h-2.5 bg-pink-500 rounded-full ml-1"></div>
           <span className="text-sm font-medium text-zinc-300 ml-0.5">Bike</span>
         </div>
         <div className="flex items-center gap-3">
@@ -385,58 +385,58 @@ export default function SimulationView({ state }) {
       </div>
       
       <div className="flex flex-col items-center gap-4 w-full h-full max-h-[90vh]">
+        <div className="absolute top-6 left-6 flex items-center gap-3 bg-zinc-950/90 backdrop-blur-md px-5 py-2.5 rounded-full border border-zinc-800 shadow-xl z-30" title="T: Simulation Time Step&#10;Phase: Current Traffic Light Combination&#10;0: N-S (Straight/Right)&#10;1: N-S (Left Turn)&#10;2: E-W (Straight/Right)&#10;3: E-W (Left Turn)">
+          <div className={`w-3 h-3 rounded-full ${state.is_running ? 'bg-emerald-500 animate-pulse shadow-[0_0_12px_rgba(16,185,129,0.8)]' : 'bg-red-500'}`} />
+          <span className="text-sm font-bold tracking-widest text-emerald-400">T (Time): {state.step}</span>
+          <div className="w-px h-4 bg-zinc-700 mx-1"></div>
+          <span className="text-sm font-mono text-zinc-400 font-medium">Light Phase: <span className="text-zinc-200">{state.phase}</span></span>
+        </div>
+
+        <div className="absolute bottom-6 left-6 bg-zinc-950/90 backdrop-blur-md border border-zinc-800/50 p-4 rounded-xl shadow-2xl z-30 flex flex-col gap-2 min-w-[180px]">
+          <h3 className="text-zinc-200 text-xs font-bold uppercase tracking-wider mb-1">Live Metrics</h3>
+          <div className="flex justify-between items-center text-sm">
+              <span className="text-zinc-400">Total Vehicles</span>
+              <span className="font-mono font-bold text-white">{state.vehicles?.length || 0}</span>
+          </div>
+          <div className="flex justify-between items-center text-sm">
+              <span className="text-zinc-400">Cars</span>
+              <span className="font-mono font-bold text-blue-400">
+                  {state.vehicles?.filter(v => v.type === 'car').length || 0}
+              </span>
+          </div>
+          <div className="flex justify-between items-center text-sm">
+              <span className="text-zinc-400">Buses</span>
+              <span className="font-mono font-bold text-amber-500">
+                  {state.vehicles?.filter(v => v.type === 'bus').length || 0}
+              </span>
+          </div>
+          <div className="flex justify-between items-center text-sm">
+              <span className="text-zinc-400">Trucks</span>
+              <span className="font-mono font-bold text-purple-400">
+                  {state.vehicles?.filter(v => v.type === 'truck').length || 0}
+              </span>
+          </div>
+          <div className="flex justify-between items-center text-sm">
+              <span className="text-zinc-400">Bikes</span>
+              <span className="font-mono font-bold text-pink-400">
+                  {state.vehicles?.filter(v => v.type === 'bike').length || 0}
+              </span>
+          </div>
+          <div className="flex justify-between items-center text-sm mt-1 pt-1 border-t border-zinc-800">
+              <span className="text-zinc-400">Ambulances</span>
+              <span className={`font-mono font-bold ${state.vehicles?.filter(v => v.type === 'ambulance').length > 0 ? 'text-red-500 animate-pulse shadow-sm' : 'text-zinc-500'}`}>
+                  {state.vehicles?.filter(v => v.type === 'ambulance').length || 0}
+              </span>
+          </div>
+        </div>
+
         <div className="bg-zinc-950/50 border border-zinc-800/50 p-3 rounded-3xl shadow-2xl relative overflow-hidden flex-1 aspect-square flex items-center justify-center w-full max-w-4xl group">
           <canvas 
             ref={canvasRef} 
             className="rounded-2xl w-full h-full object-contain mix-blend-lighten"
           />
-          
-          <div className="absolute top-6 left-6 flex items-center gap-3 bg-zinc-950/90 backdrop-blur-md px-5 py-2.5 rounded-full border border-zinc-800 shadow-xl z-20" title="T: Simulation Time Step&#10;Phase: Current Traffic Light Combination&#10;0: N-S (Straight/Right)&#10;1: N-S (Left Turn)&#10;2: E-W (Straight/Right)&#10;3: E-W (Left Turn)">
-            <div className={`w-3 h-3 rounded-full ${state.is_running ? 'bg-emerald-500 animate-pulse shadow-[0_0_12px_rgba(16,185,129,0.8)]' : 'bg-red-500'}`} />
-            <span className="text-sm font-bold tracking-widest text-emerald-400">T (Time): {state.step}</span>
-            <div className="w-px h-4 bg-zinc-700 mx-1"></div>
-            <span className="text-sm font-mono text-zinc-400 font-medium">Light Phase: <span className="text-zinc-200">{state.phase}</span></span>
-          </div>
-
-          <div className="absolute bottom-6 left-6 bg-zinc-950/90 backdrop-blur-md border border-zinc-800/50 p-4 rounded-xl shadow-2xl z-20 flex flex-col gap-2 min-w-[180px] opacity-0 group-hover:opacity-100 transition-opacity">
-            <h3 className="text-zinc-200 text-xs font-bold uppercase tracking-wider mb-1">Live Metrics</h3>
-            <div className="flex justify-between items-center text-sm">
-                <span className="text-zinc-400">Total Vehicles</span>
-                <span className="font-mono font-bold text-white">{state.vehicles?.length || 0}</span>
-            </div>
-            <div className="flex justify-between items-center text-sm">
-                <span className="text-zinc-400">Cars</span>
-                <span className="font-mono font-bold text-blue-400">
-                    {state.vehicles?.filter(v => v.type === 'car').length || 0}
-                </span>
-            </div>
-            <div className="flex justify-between items-center text-sm">
-                <span className="text-zinc-400">Buses</span>
-                <span className="font-mono font-bold text-amber-500">
-                    {state.vehicles?.filter(v => v.type === 'bus').length || 0}
-                </span>
-            </div>
-            <div className="flex justify-between items-center text-sm">
-                <span className="text-zinc-400">Trucks</span>
-                <span className="font-mono font-bold text-purple-400">
-                    {state.vehicles?.filter(v => v.type === 'truck').length || 0}
-                </span>
-            </div>
-            <div className="flex justify-between items-center text-sm">
-                <span className="text-zinc-400">Bikes</span>
-                <span className="font-mono font-bold text-emerald-400">
-                    {state.vehicles?.filter(v => v.type === 'bike').length || 0}
-                </span>
-            </div>
-            <div className="flex justify-between items-center text-sm mt-1 pt-1 border-t border-zinc-800">
-                <span className="text-zinc-400">Ambulances</span>
-                <span className={`font-mono font-bold ${state.vehicles?.filter(v => v.type === 'ambulance').length > 0 ? 'text-red-500 animate-pulse shadow-sm' : 'text-zinc-500'}`}>
-                    {state.vehicles?.filter(v => v.type === 'ambulance').length || 0}
-                </span>
-            </div>
-          </div>
         </div>
-        <p className="text-zinc-500 text-sm font-medium">Real-time Intersection Visualization Engine. Hover inner HUD for live stats.</p>
+        <p className="text-zinc-500 text-sm font-medium">Real-time Intersection Visualization Engine.</p>
       </div>
     </div>
   );

@@ -98,7 +98,7 @@ export default function DashboardView({ state }) {
     'Car': '#3b82f6', // blue
     'Truck': '#8b5cf6', // purple
     'Bus': '#f59e0b', // amber
-    'Bike': '#10b981', // emerald
+    'Bike': '#ec4899', // pink
     'Ambulance': '#ef4444' // red
   };
 
