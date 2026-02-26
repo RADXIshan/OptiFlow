@@ -226,7 +226,6 @@ export default function DashboardView({ state }) {
         <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 backdrop-blur-sm lg:col-span-1">
           <h3 className="text-lg font-medium text-zinc-200 mb-6 flex justify-between items-center">
              Average vs Max Wait Time Trend 
-             <span className="text-xs text-zinc-500 font-normal">5-Minute Intervals</span>
           </h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
@@ -250,7 +249,6 @@ export default function DashboardView({ state }) {
         <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 backdrop-blur-sm lg:col-span-1">
           <h3 className="text-lg font-medium text-zinc-200 mb-6 flex justify-between items-center">
              Active Vehicles Pipeline
-             <span className="text-xs text-zinc-500 font-normal">5-Minute Intervals</span>
           </h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
