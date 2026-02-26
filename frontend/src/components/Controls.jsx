@@ -68,9 +68,16 @@ export default function Controls({ state }) {
 
   return (
     <div className="max-w-2xl mx-auto space-y-8">
-      <div>
-        <h2 className="text-2xl font-semibold mb-2">Engine Controls</h2>
-        <p className="text-zinc-400">Manage the core reinforcement learning simulation engine.</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold mb-2">Engine Controls</h2>
+          <p className="text-zinc-400">Manage the core reinforcement learning simulation engine.</p>
+        </div>
+        
+        <div className={`px-4 py-2 rounded-full border flex items-center gap-2 ${state?.is_running ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+           <div className={`w-2 h-2 rounded-full ${state?.is_running ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
+           <span className="font-medium text-sm">{state?.is_running ? 'Engine Active' : 'Engine Halted'}</span>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -139,17 +146,19 @@ export default function Controls({ state }) {
           <button 
             disabled={isUpdating}
             onClick={() => handleDriveSideToggle('right')}
-            className={`flex-1 flex items-center justify-center gap-2 py-4 font-semibold rounded-xl transition-all ${state?.drive_side === 'right' || !state?.drive_side ? 'bg-blue-500 text-white shadow-[0_0_20px_rgba(59,130,246,0.3)]' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
+            className={`flex-1 flex flex-col items-center justify-center gap-2 py-4 font-semibold rounded-xl transition-all relative overflow-hidden ${state?.drive_side === 'right' || !state?.drive_side ? 'bg-blue-500 text-white shadow-[0_0_20px_rgba(59,130,246,0.3)]' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
           >
             Right-Hand Drive
+            {state?.drive_side === 'right' && <span className="text-[10px] uppercase tracking-wider font-bold bg-white/20 px-2 py-0.5 rounded-full mt-1">Active Format</span>}
           </button>
           
           <button 
             disabled={isUpdating}
             onClick={() => handleDriveSideToggle('left')}
-            className={`flex-1 flex items-center justify-center gap-2 py-4 font-semibold rounded-xl transition-all ${state?.drive_side === 'left' ? 'bg-blue-500 text-white shadow-[0_0_20px_rgba(59,130,246,0.3)]' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
+            className={`flex-1 flex flex-col items-center justify-center gap-2 py-4 font-semibold rounded-xl transition-all relative overflow-hidden ${state?.drive_side === 'left' ? 'bg-blue-500 text-white shadow-[0_0_20px_rgba(59,130,246,0.3)]' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
           >
             Left-Hand Drive
+            {state?.drive_side === 'left' && <span className="text-[10px] uppercase tracking-wider font-bold bg-white/20 px-2 py-0.5 rounded-full mt-1">Active Format</span>}
           </button>
         </div>
       </div>
