@@ -4,9 +4,11 @@ import { toast } from 'sonner';
 
 export default function Controls({ state }) {
   const [isUpdating, setIsUpdating] = useState(false);
+  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  
   const handleStart = async () => {
     try {
-      await fetch('http://localhost:8000/api/simulation/start', { method: 'POST' });
+      await fetch(`${API_BASE}/api/simulation/start`, { method: 'POST' });
       toast.success('Simulation Engine Started');
     } catch (e) {
       toast.error('Failed to start engine');
@@ -15,7 +17,7 @@ export default function Controls({ state }) {
 
   const handleStop = async () => {
     try {
-      await fetch('http://localhost:8000/api/simulation/stop', { method: 'POST' });
+      await fetch(`${API_BASE}/api/simulation/stop`, { method: 'POST' });
       toast.error('Simulation Engine Halted');
     } catch (e) {
       toast.error('Failed to halt engine');
@@ -24,7 +26,7 @@ export default function Controls({ state }) {
 
   const handleSpawnAmbulance = async () => {
     try {
-      await fetch('http://localhost:8000/api/simulation/config', {
+      await fetch(`${API_BASE}/api/simulation/config`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ traffic_density: 0.1, spawn_ambulance: true })
@@ -38,7 +40,7 @@ export default function Controls({ state }) {
   const handleDriveSideToggle = async (side) => {
     setIsUpdating(true);
     try {
-      await fetch('http://localhost:8000/api/simulation/config', {
+      await fetch(`${API_BASE}/api/simulation/config`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ traffic_density: 0.1, drive_side: side })

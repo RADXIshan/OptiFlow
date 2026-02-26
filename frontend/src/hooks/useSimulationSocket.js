@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 
-export function useSimulationSocket(url = 'ws://localhost:8000/ws/simulation') {
+export function useSimulationSocket(url = `${import.meta.env.VITE_WS_URL || 'ws://localhost:8000'}/ws/simulation`) {
   const [simulationState, setSimulationState] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState(null);
