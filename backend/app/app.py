@@ -68,6 +68,7 @@ async def run_simulation_loop():
             state_data = {
                 "step": info["step"],
                 "phase": env.current_phase,
+                "is_transitioning": getattr(env, 'is_transitioning', False),
                 "reward": reward,
                 "lanes": env.lanes, # detailed info on queues
                 "vehicles": [v for q in env.lanes.values() for v in q], # flat list for easy stats
@@ -85,6 +86,7 @@ async def run_simulation_loop():
             state_data = {
                 "step": env.step_count,
                 "phase": env.current_phase,
+                "is_transitioning": getattr(env, 'is_transitioning', False),
                 "reward": 0,
                 "lanes": env.lanes,
                 "vehicles": [v for q in env.lanes.values() for v in q],

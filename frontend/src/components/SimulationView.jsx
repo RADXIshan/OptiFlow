@@ -193,8 +193,9 @@ export default function SimulationView({ state }) {
 
     // Map Phase to Green Lights
     const phase = state.phase;
+    const isTrans = state.is_transitioning || false;
     
-    const drawTrafficLight = (x, y, isGreen, orientation) => {
+    const drawTrafficLight = (x, y, isActivePhase, orientation) => {
       ctx.save();
       ctx.translate(x, y);
       ctx.rotate(orientation * Math.PI / 180);
@@ -218,9 +219,13 @@ export default function SimulationView({ state }) {
           ctx.shadowBlur = 0;
       };
       
-      drawBulb(-12, '#ef4444', !isGreen); // Red
-      drawBulb(0, '#eab308', false);      // Yellow
-      drawBulb(12, '#10b981', isGreen);   // Green
+      const showGreen = isActivePhase && !isTrans;
+      const showYellow = isActivePhase && isTrans;
+      const showRed = !isActivePhase;
+
+      drawBulb(-12, '#ef4444', showRed); // Red
+      drawBulb(0, '#eab308', showYellow);      // Yellow
+      drawBulb(12, '#10b981', showGreen);   // Green
       
       ctx.restore();
     };
@@ -389,7 +394,7 @@ export default function SimulationView({ state }) {
           <div className={`w-3 h-3 rounded-full ${state.is_running ? 'bg-emerald-500 animate-pulse shadow-[0_0_12px_rgba(16,185,129,0.8)]' : 'bg-red-500'}`} />
           <span className="text-sm font-bold tracking-widest text-emerald-400">T (Time): {state.step}</span>
           <div className="w-px h-4 bg-zinc-700 mx-1"></div>
-          <span className="text-sm font-mono text-zinc-400 font-medium">Light Phase: <span className="text-zinc-200">{state.phase}</span></span>
+          <span className="text-sm font-mono text-zinc-400 font-medium">Light Phase: <span className={state.is_transitioning ? "text-amber-400" : "text-zinc-200"}>{state.phase}</span></span>
         </div>
 
         <div className="absolute bottom-6 left-6 bg-zinc-950/90 backdrop-blur-md border border-zinc-800/50 p-4 rounded-xl shadow-2xl z-30 flex flex-col gap-2 min-w-[180px]">

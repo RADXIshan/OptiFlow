@@ -191,9 +191,9 @@ export default function DashboardView({ state }) {
         />
         <MetricCard 
           title="Current Phase" 
-          value={`Phase ${state.phase}`} 
-          icon={<Activity className="text-emerald-400" />} 
-          subtitle={phaseDescriptions[state.phase] || "RL Determined"}
+          value={state.is_transitioning ? `Phase ${state.phase} (Yellow)` : `Phase ${state.phase}`} 
+          icon={<Activity className={state.is_transitioning ? "text-amber-400" : "text-emerald-400"} />} 
+          subtitle={state.is_transitioning ? "Transitioning..." : (phaseDescriptions[state.phase] || "RL Determined")}
           onInfoClick={() => setIsPhaseModalOpen(true)}
         />
         <MetricCard 

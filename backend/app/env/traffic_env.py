@@ -81,9 +81,6 @@ class TrafficEnv(gym.Env):
         for k in self.lanes.keys():
             self.lanes[k] = []
 
-        # Initial random spawn
-        self._spawn_vehicles(base_density=0.2)
-        
         observation = self._get_obs()
         info = self._get_info()
 
