@@ -59,7 +59,6 @@ class TrafficEnv(gym.Env):
         
         # New configurable for right vs left hand driving
         self.drive_side = "right"
-        self.emergency_override = False
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -81,21 +80,21 @@ class TrafficEnv(gym.Env):
         self.step_count += 1
         
         # Change phase
-        # Check for emergency override: if an ambulance exists AND override is active, force phase to clear that lane immediately
-        if self.emergency_override:
-            ambulance_lane = None
-            for lane, queue in self.lanes.items():
-                if any(v["type"] == "ambulance" for v in queue):
-                    ambulance_lane = lane
-                    break
-            
-            if ambulance_lane:
-                if "N_" in ambulance_lane or "S_" in ambulance_lane:
-                    if "left" in ambulance_lane: action = 1
-                    else: action = 0
-                else:
-                    if "left" in ambulance_lane: action = 3
-                    else: action = 2
+        # DEFAULT EMERGENCY OVERRIDE:
+        # If an ambulance exists, always force phase to clear that lane immediately regardless of AI math.
+        ambulance_lane = None
+        for lane, queue in self.lanes.items():
+            if any(v["type"] == "ambulance" for v in queue):
+                ambulance_lane = lane
+                break
+        
+        if ambulance_lane:
+            if "N_" in ambulance_lane or "S_" in ambulance_lane:
+                if "left" in ambulance_lane: action = 1
+                else: action = 0
+            else:
+                if "left" in ambulance_lane: action = 3
+                else: action = 2
                     
         self.current_phase = action
 

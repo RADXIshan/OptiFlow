@@ -168,7 +168,7 @@ export default function DashboardView({ state }) {
           title="Emissions Mitigated" 
           value={`${co2SavedKg}kg`} 
           icon={<Activity className="text-green-500" />} 
-          subtitle="Estimated CO2 saved vs baseline"
+          subtitle="Estimated CO2 saved"
         />
         <MetricCard 
           title="Max Queue Wait" 
