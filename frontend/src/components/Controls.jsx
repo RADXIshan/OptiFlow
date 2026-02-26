@@ -1,7 +1,8 @@
-import React from 'react';
-import { AlertTriangle, Power, Car } from 'lucide-react';
+import React, { useState } from 'react';
+import { AlertTriangle, Power, Car, Map } from 'lucide-react';
 
 export default function Controls({ state }) {
+  const [isUpdating, setIsUpdating] = useState(false);
   const handleStart = async () => {
     await fetch('http://localhost:8000/api/simulation/start', { method: 'POST' });
   };
@@ -16,6 +17,19 @@ export default function Controls({ state }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ traffic_density: 0.1, spawn_ambulance: true })
     });
+  };
+
+  const handleDriveSideToggle = async (side) => {
+    setIsUpdating(true);
+    try {
+      await fetch('http://localhost:8000/api/simulation/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ traffic_density: 0.1, drive_side: side })
+      });
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   return (
@@ -63,6 +77,34 @@ export default function Controls({ state }) {
           <Car size={20} />
           Force Spawn Emergency Vehicle
         </button>
+      </div>
+
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 mt-8">
+        <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+          <Map className="text-blue-400" />
+          Environment Configuration
+        </h3>
+        <p className="text-zinc-400 text-sm mb-6">
+          Adjust physical environment parameters. Note: The RL Agent adapts its behavior to these constraints.
+        </p>
+
+        <div className="flex gap-4">
+          <button 
+            disabled={isUpdating}
+            onClick={() => handleDriveSideToggle('right')}
+            className={`flex-1 flex items-center justify-center gap-2 py-4 font-semibold rounded-xl transition-all ${state?.drive_side === 'right' || !state?.drive_side ? 'bg-blue-500 text-white shadow-[0_0_20px_rgba(59,130,246,0.3)]' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
+          >
+            Right-Hand Drive
+          </button>
+          
+          <button 
+            disabled={isUpdating}
+            onClick={() => handleDriveSideToggle('left')}
+            className={`flex-1 flex items-center justify-center gap-2 py-4 font-semibold rounded-xl transition-all ${state?.drive_side === 'left' ? 'bg-blue-500 text-white shadow-[0_0_20px_rgba(59,130,246,0.3)]' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
+          >
+            Left-Hand Drive
+          </button>
+        </div>
       </div>
     </div>
   );

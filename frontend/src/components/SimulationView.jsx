@@ -22,6 +22,9 @@ export default function SimulationView({ state }) {
     const center = { x: width / 2, y: height / 2 };
     const hs = roadWidth / 2; // half size
     
+    // Layout Direction: 1 for Right-Hand Drive, -1 for Left-Hand Drive
+    const lDir = state.drive_side === 'left' ? -1 : 1;
+
     // Draw Roads
     ctx.fillStyle = '#18181b'; // Road color
     ctx.fillRect(center.x - hs, 0, roadWidth, height);
@@ -70,6 +73,7 @@ export default function SimulationView({ state }) {
     ctx.lineWidth = 2;
     const laneW = hs / 3;
     
+    // Uses absolute laneW since it's just visual dashed lines, flip doesn't strictly matter for symmetrical dashes but good for consistency
     [center.x - laneW, center.x - 2*laneW].forEach(x => {
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, center.y - hs - cwWidth); ctx.stroke();
     });
@@ -112,25 +116,30 @@ export default function SimulationView({ state }) {
         ctx.restore();
     };
 
+    // When LHD, the 'crossing' lane is the right lane, so we swap left/right arrows visually
+    // The RL engine indices mean: 0.5 (inner crossing), 1.5 (straight), 2.5 (outer non-crossing)
+    const turnCross = lDir === -1 ? 'right' : 'left';
+    const turnNonCross = lDir === -1 ? 'left' : 'right';
+
     // Draw arrows for North incoming (pointing South, orientation 180)
-    drawArrow(center.x - 2.5*laneW, center.y - hs - cwWidth - 60, 180, 'right');
-    drawArrow(center.x - 1.5*laneW, center.y - hs - cwWidth - 60, 180, 'straight');
-    drawArrow(center.x - 0.5*laneW, center.y - hs - cwWidth - 60, 180, 'left');
+    drawArrow(center.x - lDir*2.5*laneW, center.y - hs - cwWidth - 60, 180, turnNonCross);
+    drawArrow(center.x - lDir*1.5*laneW, center.y - hs - cwWidth - 60, 180, 'straight');
+    drawArrow(center.x - lDir*0.5*laneW, center.y - hs - cwWidth - 60, 180, turnCross);
 
     // Draw arrows for South incoming (pointing North, orientation 0)
-    drawArrow(center.x + 2.5*laneW, center.y + hs + cwWidth + 60, 0, 'right');
-    drawArrow(center.x + 1.5*laneW, center.y + hs + cwWidth + 60, 0, 'straight');
-    drawArrow(center.x + 0.5*laneW, center.y + hs + cwWidth + 60, 0, 'left');
+    drawArrow(center.x + lDir*2.5*laneW, center.y + hs + cwWidth + 60, 0, turnNonCross);
+    drawArrow(center.x + lDir*1.5*laneW, center.y + hs + cwWidth + 60, 0, 'straight');
+    drawArrow(center.x + lDir*0.5*laneW, center.y + hs + cwWidth + 60, 0, turnCross);
 
     // Draw arrows for East incoming (pointing West, orientation -90)
-    drawArrow(center.x + hs + cwWidth + 60, center.y - 2.5*laneW, -90, 'right');
-    drawArrow(center.x + hs + cwWidth + 60, center.y - 1.5*laneW, -90, 'straight');
-    drawArrow(center.x + hs + cwWidth + 60, center.y - 0.5*laneW, -90, 'left');
+    drawArrow(center.x + hs + cwWidth + 60, center.y - lDir*2.5*laneW, -90, turnNonCross);
+    drawArrow(center.x + hs + cwWidth + 60, center.y - lDir*1.5*laneW, -90, 'straight');
+    drawArrow(center.x + hs + cwWidth + 60, center.y - lDir*0.5*laneW, -90, turnCross);
 
     // Draw arrows for West incoming (pointing East, orientation 90)
-    drawArrow(center.x - hs - cwWidth - 60, center.y + 2.5*laneW, 90, 'right');
-    drawArrow(center.x - hs - cwWidth - 60, center.y + 1.5*laneW, 90, 'straight');
-    drawArrow(center.x - hs - cwWidth - 60, center.y + 0.5*laneW, 90, 'left');
+    drawArrow(center.x - hs - cwWidth - 60, center.y + lDir*2.5*laneW, 90, turnNonCross);
+    drawArrow(center.x - hs - cwWidth - 60, center.y + lDir*1.5*laneW, 90, 'straight');
+    drawArrow(center.x - hs - cwWidth - 60, center.y + lDir*0.5*laneW, 90, turnCross);
 
     // Map Phase to Green Lights
     const phase = state.phase;
@@ -168,24 +177,24 @@ export default function SimulationView({ state }) {
 
     // Lights for North Incoming (facing North, so orientation 180)
     const cwOffset = cwWidth + 12;
-    drawTrafficLight(center.x - 0.5*laneW, center.y - hs - cwOffset, phase === 1, 180); // Left
-    drawTrafficLight(center.x - 1.5*laneW, center.y - hs - cwOffset, phase === 0, 180); // Straight
-    drawTrafficLight(center.x - 2.5*laneW, center.y - hs - cwOffset, phase === 0, 180); // Right
+    drawTrafficLight(center.x - lDir*0.5*laneW, center.y - hs - cwOffset, phase === 1, 180); // Left/Cross
+    drawTrafficLight(center.x - lDir*1.5*laneW, center.y - hs - cwOffset, phase === 0, 180); // Straight
+    drawTrafficLight(center.x - lDir*2.5*laneW, center.y - hs - cwOffset, phase === 0, 180); // Right/Non-Cross
 
     // Lights for South Incoming (facing South, orientation 0)
-    drawTrafficLight(center.x + 0.5*laneW, center.y + hs + cwOffset, phase === 1, 0); // Left
-    drawTrafficLight(center.x + 1.5*laneW, center.y + hs + cwOffset, phase === 0, 0); // Straight
-    drawTrafficLight(center.x + 2.5*laneW, center.y + hs + cwOffset, phase === 0, 0); // Right
+    drawTrafficLight(center.x + lDir*0.5*laneW, center.y + hs + cwOffset, phase === 1, 0); // Left/Cross
+    drawTrafficLight(center.x + lDir*1.5*laneW, center.y + hs + cwOffset, phase === 0, 0); // Straight
+    drawTrafficLight(center.x + lDir*2.5*laneW, center.y + hs + cwOffset, phase === 0, 0); // Right/Non-Cross
 
     // Lights for East Incoming (facing East, orientation -90)
-    drawTrafficLight(center.x + hs + cwOffset, center.y - 0.5*laneW, phase === 3, -90); // Left
-    drawTrafficLight(center.x + hs + cwOffset, center.y - 1.5*laneW, phase === 2, -90); // Straight
-    drawTrafficLight(center.x + hs + cwOffset, center.y - 2.5*laneW, phase === 2, -90); // Right
+    drawTrafficLight(center.x + hs + cwOffset, center.y - lDir*0.5*laneW, phase === 3, -90); // Left/Cross
+    drawTrafficLight(center.x + hs + cwOffset, center.y - lDir*1.5*laneW, phase === 2, -90); // Straight
+    drawTrafficLight(center.x + hs + cwOffset, center.y - lDir*2.5*laneW, phase === 2, -90); // Right/Non-Cross
 
     // Lights for West Incoming (facing West, orientation 90)
-    drawTrafficLight(center.x - hs - cwOffset, center.y + 0.5*laneW, phase === 3, 90); // Left
-    drawTrafficLight(center.x - hs - cwOffset, center.y + 1.5*laneW, phase === 2, 90); // Straight
-    drawTrafficLight(center.x - hs - cwOffset, center.y + 2.5*laneW, phase === 2, 90); // Right
+    drawTrafficLight(center.x - hs - cwOffset, center.y + lDir*0.5*laneW, phase === 3, 90); // Left/Cross
+    drawTrafficLight(center.x - hs - cwOffset, center.y + lDir*1.5*laneW, phase === 2, 90); // Straight
+    drawTrafficLight(center.x - hs - cwOffset, center.y + lDir*2.5*laneW, phase === 2, 90); // Right/Non-Cross
 
     // Draw Vehicles
     const drawVehicles = (laneName, queue) => {
@@ -195,24 +204,24 @@ export default function SimulationView({ state }) {
       let spacingOffset = cwWidth + 25;
 
       if (laneName.startsWith("N_")) {
-        if (laneName.includes("left")) startX = center.x - 0.5*laneW;
-        if (laneName.includes("straight")) startX = center.x - 1.5*laneW;
-        if (laneName.includes("right")) startX = center.x - 2.5*laneW;
+        if (laneName.includes("left")) startX = center.x - lDir*0.5*laneW;
+        if (laneName.includes("straight")) startX = center.x - lDir*1.5*laneW;
+        if (laneName.includes("right")) startX = center.x - lDir*2.5*laneW;
         startY = center.y - hs - spacingOffset; dx = 0; dy = -35;
       } else if (laneName.startsWith("S_")) {
-        if (laneName.includes("left")) startX = center.x + 0.5*laneW;
-        if (laneName.includes("straight")) startX = center.x + 1.5*laneW;
-        if (laneName.includes("right")) startX = center.x + 2.5*laneW;
+        if (laneName.includes("left")) startX = center.x + lDir*0.5*laneW;
+        if (laneName.includes("straight")) startX = center.x + lDir*1.5*laneW;
+        if (laneName.includes("right")) startX = center.x + lDir*2.5*laneW;
         startY = center.y + hs + spacingOffset; dx = 0; dy = 35;
       } else if (laneName.startsWith("E_")) {
-        if (laneName.includes("left")) startY = center.y - 0.5*laneW;
-        if (laneName.includes("straight")) startY = center.y - 1.5*laneW;
-        if (laneName.includes("right")) startY = center.y - 2.5*laneW;
+        if (laneName.includes("left")) startY = center.y - lDir*0.5*laneW;
+        if (laneName.includes("straight")) startY = center.y - lDir*1.5*laneW;
+        if (laneName.includes("right")) startY = center.y - lDir*2.5*laneW;
         startX = center.x + hs + spacingOffset; dx = 35; dy = 0;
       } else if (laneName.startsWith("W_")) {
-        if (laneName.includes("left")) startY = center.y + 0.5*laneW;
-        if (laneName.includes("straight")) startY = center.y + 1.5*laneW;
-        if (laneName.includes("right")) startY = center.y + 2.5*laneW;
+        if (laneName.includes("left")) startY = center.y + lDir*0.5*laneW;
+        if (laneName.includes("straight")) startY = center.y + lDir*1.5*laneW;
+        if (laneName.includes("right")) startY = center.y + lDir*2.5*laneW;
         startX = center.x - hs - spacingOffset; dx = -35; dy = 0;
       }
 

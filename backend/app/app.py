@@ -71,6 +71,7 @@ async def run_simulation_loop():
                 "reward": reward,
                 "lanes": env.lanes, # detailed info on queues
                 "vehicles": [v for q in env.lanes.values() for v in q], # flat list for easy stats
+                "drive_side": env.drive_side,
             }
             await manager.broadcast(state_data)
             

@@ -43,6 +43,9 @@ class TrafficEnv(gym.Env):
         self.vehicle_types = ["car", "bus", "bike", "ambulance"]
         # Realistic probabilities: 80% cars, 5% buses, 14% bikes, 1% ambulances
         self.vehicle_weights = [0.80, 0.05, 0.14, 0.01]
+        
+        # New configurable for right vs left hand driving
+        self.drive_side = "right"
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
