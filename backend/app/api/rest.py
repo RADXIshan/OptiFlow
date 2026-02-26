@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-import app.app as main_app  # Notice we import to mutate global states if needed
+import app.app as main_app  
 
 router = APIRouter()
 
@@ -8,12 +8,16 @@ class SimulationConfig(BaseModel):
     traffic_density: float
     spawn_ambulance: bool = False
     drive_side: str | None = None
+    emergency_override: bool | None = None
 
 @router.post("/simulation/config")
 async def update_simulation_config(config: SimulationConfig):
     # This endpoint updates the global simulation config
     if config.drive_side is not None:
         main_app.env.drive_side = config.drive_side
+        
+    if config.emergency_override is not None:
+        main_app.env.emergency_override = config.emergency_override
         
     if config.spawn_ambulance:
         # Spawn one ambulance in a random lane

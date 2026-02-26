@@ -40,12 +40,26 @@ class TrafficEnv(gym.Env):
         self.step_count = 0
         self.render_mode = render_mode
 
-        self.vehicle_types = ["car", "bus", "bike", "ambulance"]
-        # Realistic probabilities: 80% cars, 5% buses, 14% bikes, 1% ambulances
-        self.vehicle_weights = [0.80, 0.05, 0.14, 0.01]
+        self.vehicle_types = ["car", "truck", "bus", "bike", "ambulance"]
+        # Realistic probabilities: 70% cars, 10% trucks, 5% buses, 14% bikes, 1% ambulances
+        self.vehicle_weights = [0.70, 0.10, 0.05, 0.14, 0.01]
+        
+        # Vehicle clearance cost (how many "steps" it roughly takes to clear this vehicle)
+        # Using this to model delayed throughput rather than a simple pop
+        self.vehicle_clearance_cost = {
+            "car": 1.0,
+            "truck": 2.5, # Trucks take longer to accelerate and clear
+            "bus": 2.0,
+            "bike": 0.5,
+            "ambulance": 1.0,
+        }
+        
+        # We need to track the current "clearance delay" for the active lane to model heavy vehicles
+        self.lane_clearance_timers = {k: 0.0 for k in self.lanes.keys()}
         
         # New configurable for right vs left hand driving
         self.drive_side = "right"
+        self.emergency_override = False
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -67,6 +81,22 @@ class TrafficEnv(gym.Env):
         self.step_count += 1
         
         # Change phase
+        # Check for emergency override: if an ambulance exists AND override is active, force phase to clear that lane immediately
+        if self.emergency_override:
+            ambulance_lane = None
+            for lane, queue in self.lanes.items():
+                if any(v["type"] == "ambulance" for v in queue):
+                    ambulance_lane = lane
+                    break
+            
+            if ambulance_lane:
+                if "N_" in ambulance_lane or "S_" in ambulance_lane:
+                    if "left" in ambulance_lane: action = 1
+                    else: action = 0
+                else:
+                    if "left" in ambulance_lane: action = 3
+                    else: action = 2
+                    
         self.current_phase = action
 
         # Process vehicle movements based on the current phase
@@ -102,9 +132,20 @@ class TrafficEnv(gym.Env):
 
         for lane in active_lanes:
             if self.lanes[lane]:
-                cleared.append(self.lanes[lane].pop(0))
-                
-        # Non-active lanes: wait time increases (we can model this by just penalizing queue length)
+                # Decrement the clearance timer for this lane
+                if self.lane_clearance_timers[lane] <= 0:
+                   # Pop the vehicle and calculate its specific cost to set the timer
+                   vehicle = self.lanes[lane].pop(0)
+                   cleared.append(vehicle)
+                   self.lane_clearance_timers[lane] = self.vehicle_clearance_cost[vehicle["type"]]
+                else:
+                   self.lane_clearance_timers[lane] -= 1.0 # Standard tick
+                   
+        # Reset timers for non-active lanes so they start fresh when green
+        for lane in self.lanes.keys():
+            if lane not in active_lanes:
+                self.lane_clearance_timers[lane] = 0.0
+
         return cleared
 
     def _spawn_vehicles(self, base_density=0.1):
@@ -131,20 +172,27 @@ class TrafficEnv(gym.Env):
         return {"step": self.step_count, "lanes": self.lanes}
 
     def _calculate_reward(self, cleared_vehicles):
-        # Base penalty for total queue length (negative reward)
-        total_queued = sum(len(q) for q in self.lanes.values())
-        reward = -total_queued * 0.1 
-
-        # Heavy penalty for ambulances waiting
-        ambulance_wait = 0
+        # OPTIMIZED RL REWARD FUNCTION
+        # Instead of just queue length, we penalize the actual aggregated delay.
+        # This forces the agent to service lanes that have been waiting the longest, avoiding starvation.
+        # We use a quadratic penalty for individual wait times to harshly punish outliers.
+        
+        delay_penalty = 0
+        ambulance_penalty = 0
+        
         for queue in self.lanes.values():
             for v in queue:
+                wait_sec = v["wait_time"]
                 if v["type"] == "ambulance":
-                    ambulance_wait += v["wait_time"]
-                    
-        reward -= ambulance_wait * 5.0 # High penalty!
+                    ambulance_penalty += (wait_sec ** 1.5) * 10.0 # Extreme priority
+                else:
+                    delay_penalty += (wait_sec ** 1.2) * 0.1 # Non-linear scaling avoids single lanes waiting forever
 
-        # Positive reward for clearing vehicles (optional, encourages throughput)
-        reward += len(cleared_vehicles) * 1.0
+        reward = -delay_penalty - ambulance_penalty
+
+        # Positive reward for clearing vehicles (encourages throughput)
+        # Give higher reward for clearing heavily delayed vehicles
+        for v in cleared_vehicles:
+             reward += 5.0 + (v["wait_time"] * 0.2)
         
         return reward

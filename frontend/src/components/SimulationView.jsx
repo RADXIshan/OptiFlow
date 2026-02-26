@@ -281,6 +281,7 @@ export default function SimulationView({ state }) {
 
         const colors = {
             'car': '#3b82f6',
+            'truck': '#8b5cf6', // purple
             'bus': '#f59e0b',
             'bike': '#10b981',
             'ambulance': '#ef4444'
@@ -303,8 +304,11 @@ export default function SimulationView({ state }) {
            ctx.arc(0, 0, 5, 0, Math.PI * 2);
            ctx.fill();
         } else {
-           const vw = vehicle.type === 'bus' ? 18 : 14;
-           const vh = vehicle.type === 'bus' ? 38 : 24;
+           let vw = 14; 
+           let vh = 24;
+           if (vehicle.type === 'bus') { vw = 18; vh = 38; }
+           if (vehicle.type === 'truck') { vw = 20; vh = 45; } // Trucks are longest and widest
+           
            ctx.roundRect(-vw/2, -vh/2, vw, vh, 3);
            ctx.fill();
            
@@ -357,6 +361,10 @@ export default function SimulationView({ state }) {
           <span className="text-sm font-medium text-zinc-300">Bus</span>
         </div>
         <div className="flex items-center gap-3">
+          <div className="w-6 h-3 bg-purple-500 rounded-sm"></div>
+          <span className="text-sm font-medium text-zinc-300">Truck</span>
+        </div>
+        <div className="flex items-center gap-3">
           <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full ml-1"></div>
           <span className="text-sm font-medium text-zinc-300 ml-0.5">Bike</span>
         </div>
@@ -390,6 +398,12 @@ export default function SimulationView({ state }) {
                 <span className="text-zinc-400">Ambulances</span>
                 <span className={`font-mono font-bold ${state.vehicles?.filter(v => v.type === 'ambulance').length > 0 ? 'text-red-400 animate-pulse' : 'text-zinc-500'}`}>
                     {state.vehicles?.filter(v => v.type === 'ambulance').length || 0}
+                </span>
+            </div>
+            <div className="flex justify-between items-center text-sm">
+                <span className="text-zinc-400">Trucks</span>
+                <span className="font-mono font-bold text-white">
+                    {state.vehicles?.filter(v => v.type === 'truck').length || 0}
                 </span>
             </div>
           </div>

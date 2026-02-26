@@ -66,6 +66,23 @@ export default function Controls({ state }) {
     }
   };
 
+  const handlePreemptionToggle = async (shouldEnable) => {
+    setIsUpdating(true);
+    try {
+      await fetch(`${API_BASE}/api/simulation/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ traffic_density: 0.1, emergency_override: shouldEnable })
+      });
+      if (shouldEnable) toast.error('STRICT OVERRIDE: Active. Clearing paths.');
+      else toast.info('Strict override disabled. Resuming model control.');
+    } catch (e) {
+      toast.error('Failed to update preemption protocol');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   return (
     <div className="max-w-2xl mx-auto space-y-8">
       <div className="flex items-start justify-between">
@@ -124,13 +141,25 @@ export default function Controls({ state }) {
           Trigger forced events to test the Reinforcement Learning model's priority handling out of normal distribution.
         </p>
 
-        <button 
-          onClick={handleSpawnAmbulance}
-          className="w-full flex items-center justify-center gap-3 py-4 bg-amber-500 text-black font-semibold rounded-xl hover:bg-amber-400 transition-colors shadow-[0_0_20px_rgba(245,158,11,0.2)]"
-        >
-          <Car size={20} />
-          Force Spawn Emergency Vehicle
-        </button>
+        <div className="flex flex-col gap-4">
+          <button 
+            onClick={handleSpawnAmbulance}
+            className="w-full flex items-center justify-center gap-3 py-4 bg-amber-500 text-black font-semibold rounded-xl hover:bg-amber-400 transition-colors shadow-[0_0_20px_rgba(245,158,11,0.2)]"
+          >
+            <Car size={20} />
+            Force Spawn Emergency Vehicle
+          </button>
+          
+          <button 
+            disabled={isUpdating}
+            onClick={() => handlePreemptionToggle(!state?.emergency_override)}
+            className={`w-full flex items-center justify-center gap-3 py-4 font-semibold rounded-xl transition-all relative overflow-hidden ${state?.emergency_override ? 'bg-red-500 text-white shadow-[0_0_20px_rgba(239,68,68,0.4)]' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
+          >
+            <AlertTriangle size={20} className={state?.emergency_override ? 'animate-pulse' : ''} />
+            {state?.emergency_override ? 'DISABLE Strict Preemption' : 'ENABLE Strict Preemption'}
+            {state?.emergency_override && <span className="absolute top-2 right-2 text-[10px] uppercase tracking-wider font-bold bg-white/20 px-2 py-0.5 rounded-full mt-1">ACTIVE</span>}
+          </button>
+        </div>
       </div>
 
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 mt-8">

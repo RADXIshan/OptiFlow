@@ -72,6 +72,7 @@ async def run_simulation_loop():
                 "lanes": env.lanes, # detailed info on queues
                 "vehicles": [v for q in env.lanes.values() for v in q], # flat list for easy stats
                 "drive_side": env.drive_side,
+                "emergency_override": env.emergency_override,
                 "is_running": True
             }
             await manager.broadcast(state_data)
@@ -89,6 +90,7 @@ async def run_simulation_loop():
                 "lanes": env.lanes,
                 "vehicles": [v for q in env.lanes.values() for v in q],
                 "drive_side": env.drive_side,
+                "emergency_override": env.emergency_override,
                 "is_running": False
             }
             await manager.broadcast(state_data)
