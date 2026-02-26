@@ -76,7 +76,18 @@ function MainLayout() {
 export default function App() {
   return (
     <BrowserRouter>
-      <Toaster theme="dark" position="bottom-right" />
+      <Toaster 
+        theme="dark" 
+        position="bottom-right" 
+        toastOptions={{
+          style: {
+            fontSize: '1.125rem',
+            padding: '1.25rem',
+            minWidth: '350px'
+          },
+          className: 'text-lg'
+        }}
+      />
       <MainLayout />
     </BrowserRouter>
   );
