@@ -25,10 +25,10 @@ class TrafficEnv(gym.Env):
         # 4 approaches * 3 lanes (left, straight, right) = 12 queues.
         # We also want to know if there's an ambulance in any of these queues.
         # So we track: [queue_length, num_ambulances] for each of the 12 lanes.
-        # Plus 1 integer for the current traffic light phase.
-        # Total state size: 12 * 2 + 1 = 25
-        low = np.zeros(25, dtype=np.float32)
-        high = np.ones(25, dtype=np.float32) * 100 # arbitrary max
+        # Plus 1 integer for the current traffic light phase, and 1 integer for transition state
+        # Total state size: 12 * 2 + 2 = 26
+        low = np.zeros(26, dtype=np.float32)
+        high = np.ones(26, dtype=np.float32) * 100 # arbitrary max
         self.observation_space = spaces.Box(low=low, high=high, dtype=np.float32)
 
         self.current_phase = 0
@@ -59,11 +59,24 @@ class TrafficEnv(gym.Env):
         
         # New configurable for right vs left hand driving
         self.drive_side = "right"
+        
+        # Traffic timing constraints
+        self.phase_time = 0
+        self.min_green = 4       # Minimum steps a green light must stay active
+        self.max_green = 30      # Maximum steps before forcing a switch (unless ambulance)
+        self.transition_delay = 2 # Steps required to switch phases (yellow light)
+        self.current_transition_timer = 0
+        self.is_transitioning = False
+        self.next_phase = 0
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
         self.current_phase = 0
         self.step_count = 0
+        self.phase_time = 0
+        self.is_transitioning = False
+        self.current_transition_timer = 0
+        self.next_phase = 0
         
         for k in self.lanes.keys():
             self.lanes[k] = []
@@ -79,27 +92,45 @@ class TrafficEnv(gym.Env):
     def step(self, action):
         self.step_count += 1
         
-        # Change phase
-        # DEFAULT EMERGENCY OVERRIDE:
-        # If an ambulance exists, always force phase to clear that lane immediately regardless of AI math.
+        # Check for ambulance override
         ambulance_lane = None
         for lane, queue in self.lanes.items():
             if any(v["type"] == "ambulance" for v in queue):
                 ambulance_lane = lane
                 break
         
+        target_action = action
         if ambulance_lane:
             if "N_" in ambulance_lane or "S_" in ambulance_lane:
-                if "left" in ambulance_lane: action = 1
-                else: action = 0
+                target_action = 1 if "left" in ambulance_lane else 0
             else:
-                if "left" in ambulance_lane: action = 3
-                else: action = 2
-                    
-        self.current_phase = action
+                target_action = 3 if "left" in ambulance_lane else 2
 
-        # Process vehicle movements based on the current phase
-        cleared_vehicles = self._process_traffic()
+        # Handle phase transitions and time limits
+        if self.is_transitioning:
+            self.current_transition_timer -= 1
+            if self.current_transition_timer <= 0:
+                self.is_transitioning = False
+                self.current_phase = self.next_phase
+                self.phase_time = 0
+        else:
+            # If AI wants to switch or max time reached (and not an ambulance insisting on current phase)
+            wants_to_switch = target_action != self.current_phase
+            forced_switch = self.phase_time >= self.max_green and not ambulance_lane
+            
+            can_switch = self.phase_time >= self.min_green or ambulance_lane
+            
+            if (wants_to_switch or forced_switch) and can_switch:
+                self.is_transitioning = True
+                self.current_transition_timer = self.transition_delay
+                self.next_phase = target_action if wants_to_switch else (self.current_phase + 1) % 4
+            else:
+                self.phase_time += 1
+
+        # Process vehicle movements (no movement during transition)
+        cleared_vehicles = []
+        if not self.is_transitioning:
+            cleared_vehicles = self._process_traffic()
 
         # Spawn new vehicles with dynamic density (simulating rush hour waves)
         # Using a sine wave based on step count. At step 0, sine is 0, base_density is 0.1.
@@ -165,6 +196,7 @@ class TrafficEnv(gym.Env):
                 v["wait_time"] += 1
 
         obs.append(self.current_phase)
+        obs.append(1 if self.is_transitioning else 0)
         return np.array(obs, dtype=np.float32)
 
     def _get_info(self):

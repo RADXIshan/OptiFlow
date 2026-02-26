@@ -48,6 +48,21 @@ export default function DashboardView({ state }) {
     });
   }, [state]);
 
+  const vehicleTypeDistribution = useMemo(() => {
+    if (!state || !state.vehicles) return [];
+    
+    // Count different types
+    const counts = state.vehicles.reduce((acc, v) => {
+      acc[v.type] = (acc[v.type] || 0) + 1;
+      return acc;
+    }, {});
+    
+    // Filter out 0 count and format for PieChart
+    return Object.entries(counts)
+      .map(([name, value]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), value }))
+      .filter(item => item.value > 0);
+  }, [state]);
+
   if (!state) {
     return (
       <div className="flex items-center justify-center h-full text-zinc-500">
@@ -78,21 +93,6 @@ export default function DashboardView({ state }) {
     name: lane.replace('_', ' '),
     queueSize: state.lanes[lane].length
   }));
-
-  const vehicleTypeDistribution = useMemo(() => {
-    if (!state.vehicles) return [];
-    
-    // Count different types
-    const counts = state.vehicles.reduce((acc, v) => {
-      acc[v.type] = (acc[v.type] || 0) + 1;
-      return acc;
-    }, {});
-    
-    // Filter out 0 count and format for PieChart
-    return Object.entries(counts)
-      .map(([name, value]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), value }))
-      .filter(item => item.value > 0);
-  }, [state.vehicles]);
 
   const COLORS = {
     'Car': '#3b82f6', // blue
