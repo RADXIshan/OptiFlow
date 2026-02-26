@@ -250,34 +250,44 @@ export default function SimulationView({ state }) {
     const drawVehicles = (laneName, queue) => {
       if (!queue) return;
       
-      let startX, startY, dx, dy;
-      let spacingOffset = cwWidth + 25;
+      let startX = center.x, startY = center.y, dx = 0, dy = 0;
+      let spacingOffset = cwWidth + 35; // Start just behind traffic light to avoid overlap
 
       if (laneName.startsWith("N_")) {
         if (laneName.includes("left")) startX = center.x - lDir*0.5*laneW;
         if (laneName.includes("straight")) startX = center.x - lDir*1.5*laneW;
         if (laneName.includes("right")) startX = center.x - lDir*2.5*laneW;
-        startY = center.y - hs - spacingOffset; dx = 0; dy = -35;
+        startY = center.y - hs; dx = 0; dy = -1;
       } else if (laneName.startsWith("S_")) {
         if (laneName.includes("left")) startX = center.x + lDir*0.5*laneW;
         if (laneName.includes("straight")) startX = center.x + lDir*1.5*laneW;
         if (laneName.includes("right")) startX = center.x + lDir*2.5*laneW;
-        startY = center.y + hs + spacingOffset; dx = 0; dy = 35;
+        startY = center.y + hs; dx = 0; dy = 1;
       } else if (laneName.startsWith("E_")) {
         if (laneName.includes("left")) startY = center.y - lDir*0.5*laneW;
         if (laneName.includes("straight")) startY = center.y - lDir*1.5*laneW;
         if (laneName.includes("right")) startY = center.y - lDir*2.5*laneW;
-        startX = center.x + hs + spacingOffset; dx = 35; dy = 0;
+        startX = center.x + hs; dx = 1; dy = 0;
       } else if (laneName.startsWith("W_")) {
         if (laneName.includes("left")) startY = center.y + lDir*0.5*laneW;
         if (laneName.includes("straight")) startY = center.y + lDir*1.5*laneW;
         if (laneName.includes("right")) startY = center.y + lDir*2.5*laneW;
-        startX = center.x - hs - spacingOffset; dx = -35; dy = 0;
+        startX = center.x - hs; dx = -1; dy = 0;
       }
 
+      let currentOffset = spacingOffset;
+
       queue.forEach((vehicle, idx) => {
-        const x = startX + dx * idx;
-        const y = startY + dy * idx;
+        let vLength = 24;
+        if (vehicle.type === 'bus') vLength = 38;
+        if (vehicle.type === 'truck') vLength = 45;
+        if (vehicle.type === 'bike') vLength = 10;
+
+        const centerPos = currentOffset + vLength / 2;
+        const x = startX + dx * centerPos;
+        const y = startY + dy * centerPos;
+
+        currentOffset += vLength + 8; // gap between vehicles
 
         const colors = {
             'car': '#3b82f6',
@@ -391,19 +401,37 @@ export default function SimulationView({ state }) {
           <div className="absolute bottom-6 left-6 bg-zinc-950/90 backdrop-blur-md border border-zinc-800/50 p-4 rounded-xl shadow-2xl z-20 flex flex-col gap-2 min-w-[180px] opacity-0 group-hover:opacity-100 transition-opacity">
             <h3 className="text-zinc-200 text-xs font-bold uppercase tracking-wider mb-1">Live Metrics</h3>
             <div className="flex justify-between items-center text-sm">
-                <span className="text-zinc-400">Active Vehicles</span>
+                <span className="text-zinc-400">Total Vehicles</span>
                 <span className="font-mono font-bold text-white">{state.vehicles?.length || 0}</span>
             </div>
             <div className="flex justify-between items-center text-sm">
-                <span className="text-zinc-400">Ambulances</span>
-                <span className={`font-mono font-bold ${state.vehicles?.filter(v => v.type === 'ambulance').length > 0 ? 'text-red-400 animate-pulse' : 'text-zinc-500'}`}>
-                    {state.vehicles?.filter(v => v.type === 'ambulance').length || 0}
+                <span className="text-zinc-400">Cars</span>
+                <span className="font-mono font-bold text-blue-400">
+                    {state.vehicles?.filter(v => v.type === 'car').length || 0}
+                </span>
+            </div>
+            <div className="flex justify-between items-center text-sm">
+                <span className="text-zinc-400">Buses</span>
+                <span className="font-mono font-bold text-amber-500">
+                    {state.vehicles?.filter(v => v.type === 'bus').length || 0}
                 </span>
             </div>
             <div className="flex justify-between items-center text-sm">
                 <span className="text-zinc-400">Trucks</span>
-                <span className="font-mono font-bold text-white">
+                <span className="font-mono font-bold text-purple-400">
                     {state.vehicles?.filter(v => v.type === 'truck').length || 0}
+                </span>
+            </div>
+            <div className="flex justify-between items-center text-sm">
+                <span className="text-zinc-400">Bikes</span>
+                <span className="font-mono font-bold text-emerald-400">
+                    {state.vehicles?.filter(v => v.type === 'bike').length || 0}
+                </span>
+            </div>
+            <div className="flex justify-between items-center text-sm mt-1 pt-1 border-t border-zinc-800">
+                <span className="text-zinc-400">Ambulances</span>
+                <span className={`font-mono font-bold ${state.vehicles?.filter(v => v.type === 'ambulance').length > 0 ? 'text-red-500 animate-pulse shadow-sm' : 'text-zinc-500'}`}>
+                    {state.vehicles?.filter(v => v.type === 'ambulance').length || 0}
                 </span>
             </div>
           </div>
