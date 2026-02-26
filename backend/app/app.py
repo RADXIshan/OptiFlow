@@ -77,8 +77,8 @@ async def run_simulation_loop():
             if terminated or truncated:
                 obs, info = env.reset()
                 
-            # Tick every 0.2 seconds (5Hz)
-            await asyncio.sleep(0.2)
+            # Tick every 0.8 seconds to make simulation more realistic and followable
+            await asyncio.sleep(0.8)
         else:
             await asyncio.sleep(1.0)
 

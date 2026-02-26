@@ -13,7 +13,7 @@ function Navigation() {
   return (
     <nav className="w-64 bg-zinc-950 border-r border-zinc-900 h-screen flex flex-col">
       <div className="p-6">
-        <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent flex items-center gap-2">
+        <h1 className="text-2xl font-bold bg-linear-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent flex items-center gap-2">
           <Activity className="text-blue-500" />
           OptiFlow
         </h1>
@@ -59,7 +59,7 @@ function MainLayout() {
         </header>
 
         <div className="flex-1 overflow-auto p-8 relative">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-900/20 via-black to-black pointer-events-none -z-10" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,var(--tw-gradient-stops))] from-blue-900/20 via-black to-black pointer-events-none -z-10" />
           
           <Routes>
             <Route path="/" element={<DashboardView state={simulationState} />} />

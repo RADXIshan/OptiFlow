@@ -41,7 +41,8 @@ class TrafficEnv(gym.Env):
         self.render_mode = render_mode
 
         self.vehicle_types = ["car", "bus", "bike", "ambulance"]
-        self.vehicle_weights = [0.7, 0.1, 0.15, 0.05] # Probability of spawning
+        # Realistic probabilities: 80% cars, 5% buses, 14% bikes, 1% ambulances
+        self.vehicle_weights = [0.80, 0.05, 0.14, 0.01]
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -52,7 +53,7 @@ class TrafficEnv(gym.Env):
             self.lanes[k] = []
 
         # Initial random spawn
-        self._spawn_vehicles(density=0.2)
+        self._spawn_vehicles(base_density=0.2)
         
         observation = self._get_obs()
         info = self._get_info()
@@ -68,8 +69,12 @@ class TrafficEnv(gym.Env):
         # Process vehicle movements based on the current phase
         cleared_vehicles = self._process_traffic()
 
-        # Spawn new vehicles
-        self._spawn_vehicles(density=0.1)
+        # Spawn new vehicles with dynamic density (simulating rush hour waves)
+        # Using a sine wave based on step count. At step 0, sine is 0, base_density is 0.1.
+        # Max wave amplitude is 0.15, so density fluctuates between 0.1 and 0.25
+        wave_effect = np.sin(self.step_count / 50.0) * 0.1
+        current_density = max(0.05, 0.15 + wave_effect)
+        self._spawn_vehicles(base_density=current_density)
 
         observation = self._get_obs()
         reward = self._calculate_reward(cleared_vehicles)
@@ -99,9 +104,9 @@ class TrafficEnv(gym.Env):
         # Non-active lanes: wait time increases (we can model this by just penalizing queue length)
         return cleared
 
-    def _spawn_vehicles(self, density=0.1):
+    def _spawn_vehicles(self, base_density=0.1):
         for lane in self.lanes.keys():
-            if random.random() < density:
+            if random.random() < base_density:
                 v_type = random.choices(self.vehicle_types, weights=self.vehicle_weights)[0]
                 self.lanes[lane].append({"type": v_type, "wait_time": 0})
 
