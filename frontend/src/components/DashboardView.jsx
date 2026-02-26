@@ -1,8 +1,43 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { Activity, Car, Clock, ShieldAlert } from 'lucide-react';
 
 export default function DashboardView({ state }) {
+  const [history, setHistory] = useState([]);
+
+  useEffect(() => {
+    if (!state) return;
+    
+    // Check if we restarted step from 0
+    if (state.step === 0 && history.length > 0) {
+      setHistory([]);
+      return;
+    }
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour12: false, minute: '2-digit', second: '2-digit' });
+
+    const totalVehicles = state.vehicles?.length || 0;
+    const totalWaitTime = state.vehicles?.reduce((acc, v) => acc + v.wait_time, 0) || 0;
+    const avgWaitTime = totalVehicles > 0 ? (totalWaitTime / totalVehicles).toFixed(1) : 0;
+
+    setHistory(prev => {
+      // Avoid duplicate points for the same step (just simpler)
+      if (prev.length > 0 && prev[prev.length - 1].step === state.step) {
+         return prev;
+      }
+      const newPoint = { 
+        time: timeStr, 
+        wait: parseFloat(avgWaitTime), 
+        vehicles: totalVehicles, 
+        step: state.step 
+      };
+      const newData = [...prev, newPoint];
+      if (newData.length > 20) return newData.slice(newData.length - 20);
+      return newData;
+    });
+  }, [state]);
+
   if (!state) {
     return (
       <div className="flex items-center justify-center h-full text-zinc-500">
@@ -21,21 +56,28 @@ export default function DashboardView({ state }) {
   const totalWaitTime = state.vehicles?.reduce((acc, v) => acc + v.wait_time, 0) || 0;
   const avgWaitTime = totalVehicles > 0 ? (totalWaitTime / totalVehicles).toFixed(1) : 0;
 
-  // Transform lane data into chart format
   const laneChartData = Object.keys(state.lanes || {}).map(lane => ({
     name: lane.replace('_', ' '),
     queueSize: state.lanes[lane].length
   }));
 
-  // Mock historical data for the line chart (in a real app, we'd accumulate this state hook side)
-  const historyData = [
-    { time: '10s', wait: Math.random() * 10 + 5 },
-    { time: '8s', wait: Math.random() * 10 + 5 },
-    { time: '6s', wait: Math.random() * 10 + 5 },
-    { time: '4s', wait: Math.random() * 10 + 5 },
-    { time: '2s', wait: Math.random() * 10 + 5 },
-    { time: 'Now', wait: parseFloat(avgWaitTime) },
-  ];
+  let vehicleTrend = 0;
+  let waitTrend = 0;
+  if (history.length > 1) {
+    const avgVehiclesHistory = history.reduce((acc, curr) => acc + curr.vehicles, 0) / history.length;
+    vehicleTrend = totalVehicles - avgVehiclesHistory;
+
+    const avgWaitHistory = history.reduce((acc, curr) => acc + curr.wait, 0) / history.length;
+    waitTrend = avgWaitTime - avgWaitHistory;
+  }
+
+  const vehicleTrendStr = history.length > 1 ? (vehicleTrend >= 0 ? `+${vehicleTrend.toFixed(1)} from avg` : `${vehicleTrend.toFixed(1)} from avg`) : 'Gathering data...';
+  const waitTrendStr = history.length > 1 ? (waitTrend >= 0 ? `+${waitTrend.toFixed(1)}s vs avg` : `${waitTrend.toFixed(1)}s vs avg`) : 'Gathering data...';
+  
+  const vehicleTrendColor = vehicleTrend > 0 ? 'text-amber-400 bg-amber-400/10' : 'text-emerald-400 bg-emerald-400/10';
+  const waitTrendColor = waitTrend > 0 ? 'text-amber-400 bg-amber-400/10' : 'text-emerald-400 bg-emerald-400/10';
+
+  let displayHistory = history.length > 0 ? history : [{ time: 'Now', wait: parseFloat(avgWaitTime) }];
 
   return (
     <div className="space-y-6">
@@ -44,13 +86,15 @@ export default function DashboardView({ state }) {
           title="Active Vehicles" 
           value={totalVehicles} 
           icon={<Car className="text-blue-400" />} 
-          trend="+12% from avg"
+          trend={vehicleTrendStr}
+          trendColor={vehicleTrendColor}
         />
         <MetricCard 
           title="Avg Queue Wait" 
           value={`${avgWaitTime}s`} 
           icon={<Clock className="text-amber-400" />} 
-          trend="-2.4s vs baseline"
+          trend={waitTrendStr}
+          trendColor={waitTrendColor}
         />
         <MetricCard 
           title="Critical Response" 
@@ -89,7 +133,7 @@ export default function DashboardView({ state }) {
           <h3 className="text-lg font-medium text-zinc-200 mb-6">Average Wait Time Trend</h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={historyData}>
+              <LineChart data={displayHistory}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
                 <XAxis dataKey="time" stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
@@ -97,7 +141,7 @@ export default function DashboardView({ state }) {
                   contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '8px' }}
                   itemStyle={{ color: '#e4e4e7' }}
                 />
-                <Line type="monotone" dataKey="wait" stroke="#10b981" strokeWidth={3} dot={{ fill: '#10b981', r: 4 }} />
+                <Line type="monotone" dataKey="wait" stroke="#10b981" strokeWidth={3} dot={{ fill: '#10b981', r: 4 }} isAnimationActive={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -107,7 +151,7 @@ export default function DashboardView({ state }) {
   );
 }
 
-function MetricCard({ title, value, icon, trend, subtitle }) {
+function MetricCard({ title, value, icon, trend, trendColor = 'text-emerald-400 bg-emerald-400/10', subtitle }) {
   return (
     <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-xl p-6 relative overflow-hidden group hover:border-zinc-700 transition-colors">
       <div className="absolute top-0 right-0 p-4 opacity-20 transform translate-x-2 -translate-y-2 group-hover:scale-110 transition-transform">
@@ -117,7 +161,7 @@ function MetricCard({ title, value, icon, trend, subtitle }) {
         <div>
           <p className="text-zinc-400 text-sm font-medium mb-1">{title}</p>
           <h3 className="text-3xl font-bold text-white tracking-tight">{value}</h3>
-          {trend && <p className="text-emerald-400 text-xs mt-2 font-medium bg-emerald-400/10 inline-block px-2 py-0.5 rounded">{trend}</p>}
+          {trend && <p className={`text-xs mt-2 font-medium inline-block px-2 py-0.5 rounded ${trendColor}`}>{trend}</p>}
           {subtitle && <p className="text-zinc-500 text-xs mt-2">{subtitle}</p>}
         </div>
         <div className="p-2 bg-zinc-800/50 rounded-lg">

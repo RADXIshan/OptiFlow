@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertTriangle, Power, Car, Map } from 'lucide-react';
+import { AlertTriangle, Power, Car, Map, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Controls({ state }) {
@@ -21,6 +21,19 @@ export default function Controls({ state }) {
       toast.error('Simulation Engine Halted');
     } catch (e) {
       toast.error('Failed to halt engine');
+    }
+  };
+
+  const handleReset = async () => {
+    try {
+      if (state?.is_running) {
+        toast.error("Halt engine before resetting!");
+        return;
+      }
+      await fetch(`${API_BASE}/api/simulation/reset`, { method: 'POST' });
+      toast.info('Environment Reset');
+    } catch (e) {
+      toast.error('Failed to reset environment');
     }
   };
 
@@ -60,10 +73,11 @@ export default function Controls({ state }) {
         <p className="text-zinc-400">Manage the core reinforcement learning simulation engine.</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <button 
           onClick={handleStart}
-          className="flex flex-col items-center justify-center gap-3 p-8 bg-emerald-500/10 border border-emerald-500/20 hover:border-emerald-500/50 rounded-2xl transition-all group"
+          disabled={state?.is_running}
+          className={`flex flex-col items-center justify-center gap-3 p-8 rounded-2xl transition-all group ${state?.is_running ? 'bg-emerald-500/50 border border-emerald-500/50 cursor-not-allowed opacity-50' : 'bg-emerald-500/10 border border-emerald-500/20 hover:border-emerald-500/50'}`}
         >
           <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
             <Power className="text-emerald-400" size={32} />
@@ -73,12 +87,24 @@ export default function Controls({ state }) {
 
         <button 
           onClick={handleStop}
-          className="flex flex-col items-center justify-center gap-3 p-8 bg-red-500/10 border border-red-500/20 hover:border-red-500/50 rounded-2xl transition-all group"
+          disabled={!state?.is_running}
+          className={`flex flex-col items-center justify-center gap-3 p-8 rounded-2xl transition-all group ${!state?.is_running ? 'bg-red-500/50 border border-red-500/50 cursor-not-allowed opacity-50' : 'bg-red-500/10 border border-red-500/20 hover:border-red-500/50'}`}
         >
           <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
             <Power className="text-red-400" size={32} />
           </div>
           <span className="text-red-400 font-medium text-lg">Halt Engine</span>
+        </button>
+
+        <button 
+          onClick={handleReset}
+          disabled={state?.is_running}
+          className={`flex flex-col items-center justify-center gap-3 p-8 rounded-2xl transition-all group ${state?.is_running ? 'bg-blue-500/50 border border-blue-500/50 cursor-not-allowed opacity-50' : 'bg-blue-500/10 border border-blue-500/20 hover:border-blue-500/50'}`}
+        >
+          <div className="w-16 h-16 rounded-full bg-blue-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <RotateCcw className="text-blue-400" size={32} />
+          </div>
+          <span className="text-blue-400 font-medium text-lg">Reset Default</span>
         </button>
       </div>
 

@@ -31,3 +31,10 @@ async def start_simulation():
 async def stop_simulation():
     main_app.SIMULATION_RUNNING = False
     return {"status": "stopped"}
+
+@router.post("/simulation/reset")
+async def reset_simulation():
+    if not main_app.SIMULATION_RUNNING:
+        main_app.env.reset()
+        return {"status": "reset"}
+    return {"status": "error", "message": "Engine must be halted to reset"}
