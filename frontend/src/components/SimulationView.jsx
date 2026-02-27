@@ -29,19 +29,18 @@ export default function SimulationView({ state }) {
     const rows = Math.max(...coords.map(c => c.r)) + 1;
     const cols = Math.max(...coords.map(c => c.c)) + 1;
 
-    const drawIntersection = (interState, cx, cy, scale) => {
+    const drawIntersection = (interState, cx, cy, scale, extX = 800, extY = 800) => {
         ctx.save();
         ctx.translate(cx, cy);
         ctx.scale(scale, scale);
 
         const roadWidth = 240;
         const hs = roadWidth / 2;
-        const roadExt = 800; // Extend roads outwards to connect with neighbors
         
         // Draw Roads
         ctx.fillStyle = '#18181b'; 
-        ctx.fillRect(-hs, -roadExt, roadWidth, roadExt * 2);
-        ctx.fillRect(-roadExt, -hs, roadExt * 2, roadWidth);
+        ctx.fillRect(-hs, -extY, roadWidth, extY * 2);
+        ctx.fillRect(-extX, -hs, extX * 2, roadWidth);
         
         // Intersection Center
         ctx.fillStyle = '#27272a';
@@ -63,17 +62,21 @@ export default function SimulationView({ state }) {
         ctx.strokeStyle = '#facc15'; 
         ctx.lineWidth = 4;
         ctx.beginPath();
-        ctx.moveTo(-2, -roadExt); ctx.lineTo(-2, -hs - cwWidth);
-        ctx.moveTo(2, -roadExt); ctx.lineTo(2, -hs - cwWidth);
+        // Top vertical
+        ctx.moveTo(-2, -extY); ctx.lineTo(-2, -hs - cwWidth);
+        ctx.moveTo(2, -extY); ctx.lineTo(2, -hs - cwWidth);
         
-        ctx.moveTo(-2, hs + cwWidth); ctx.lineTo(-2, roadExt);
-        ctx.moveTo(2, hs + cwWidth); ctx.lineTo(2, roadExt);
+        // Bottom vertical
+        ctx.moveTo(-2, hs + cwWidth); ctx.lineTo(-2, extY);
+        ctx.moveTo(2, hs + cwWidth); ctx.lineTo(2, extY);
         
-        ctx.moveTo(-roadExt, -2); ctx.lineTo(-hs - cwWidth, -2);
-        ctx.moveTo(-roadExt, 2); ctx.lineTo(-hs - cwWidth, 2);
+        // Left horizontal
+        ctx.moveTo(-extX, -2); ctx.lineTo(-hs - cwWidth, -2);
+        ctx.moveTo(-extX, 2); ctx.lineTo(-hs - cwWidth, 2);
         
-        ctx.moveTo(hs + cwWidth, -2); ctx.lineTo(roadExt, -2);
-        ctx.moveTo(hs + cwWidth, 2); ctx.lineTo(roadExt, 2);
+        // Right horizontal
+        ctx.moveTo(hs + cwWidth, -2); ctx.lineTo(extX, -2);
+        ctx.moveTo(hs + cwWidth, 2); ctx.lineTo(extX, 2);
         ctx.stroke();
 
         ctx.strokeStyle = '#e4e4e7';
@@ -82,16 +85,16 @@ export default function SimulationView({ state }) {
         const laneW = hs / 3;
         
         [-laneW, -2*laneW].forEach(x => {
-            ctx.beginPath(); ctx.moveTo(x, -roadExt); ctx.lineTo(x, -hs - cwWidth); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, -extY); ctx.lineTo(x, -hs - cwWidth); ctx.stroke();
         });
         [laneW, 2*laneW].forEach(x => {
-            ctx.beginPath(); ctx.moveTo(x, hs + cwWidth); ctx.lineTo(x, roadExt); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, hs + cwWidth); ctx.lineTo(x, extY); ctx.stroke();
         });
         [-laneW, -2*laneW].forEach(y => {
-            ctx.beginPath(); ctx.moveTo(-roadExt, y); ctx.lineTo(-hs - cwWidth, y); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(-extX, y); ctx.lineTo(-hs - cwWidth, y); ctx.stroke();
         });
         [laneW, 2*laneW].forEach(y => {
-            ctx.beginPath(); ctx.moveTo(hs + cwWidth, y); ctx.lineTo(roadExt, y); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(hs + cwWidth, y); ctx.lineTo(extX, y); ctx.stroke();
         });
         ctx.setLineDash([]);
 
@@ -314,6 +317,40 @@ export default function SimulationView({ state }) {
           Object.entries(interState.lanes).forEach(([laneName, queue]) => {
             drawVehicles(laneName, queue);
           });
+          
+          if (viewMode === 'crossroad') {
+            // Draw lane-specific metrics in crossroad view
+            ctx.save();
+            ctx.font = '24px "Inter", sans-serif';
+            ctx.fillStyle = '#fff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            const metricsOffset = hs + cwWidth + 140; 
+            
+            const drawLaneCount = (text, x, y) => {
+              ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+              ctx.beginPath();
+              ctx.roundRect(x - 30, y - 20, 60, 40, 8);
+              ctx.fill();
+              ctx.strokeStyle = '#3b82f6';
+              ctx.lineWidth = 2;
+              ctx.stroke();
+              ctx.fillStyle = '#60a5fa';
+              ctx.fillText(text, x, y);
+            };
+
+            const nTotal = interState.lanes['N_straight'].length + interState.lanes['N_left'].length + interState.lanes['N_right'].length;
+            const sTotal = interState.lanes['S_straight'].length + interState.lanes['S_left'].length + interState.lanes['S_right'].length;
+            const eTotal = interState.lanes['E_straight'].length + interState.lanes['E_left'].length + interState.lanes['E_right'].length;
+            const wTotal = interState.lanes['W_straight'].length + interState.lanes['W_left'].length + interState.lanes['W_right'].length;
+            
+            drawLaneCount(nTotal, 0, -metricsOffset);
+            drawLaneCount(sTotal, 0, metricsOffset);
+            drawLaneCount(eTotal, metricsOffset, 0);
+            drawLaneCount(wTotal, -metricsOffset, 0);
+            ctx.restore();
+          }
         }
 
         ctx.restore();
@@ -324,6 +361,10 @@ export default function SimulationView({ state }) {
         const spacingY = height / rows;
         // Increase base scale so city view fills more of the screen
         const scale = Math.min(spacingX / 800, spacingY / 800); 
+        
+        // Calculate exact road extensions so intersections meet seamlessly in the middle
+        const extX = (spacingX / 2) / scale;
+        const extY = (spacingY / 2) / scale;
 
         for (let r = 0; r < rows; r++) {
             for (let c = 0; c < cols; c++) {
@@ -331,7 +372,44 @@ export default function SimulationView({ state }) {
                 const cy = (r + 0.5) * spacingY;
                 const interState = state.grid[`${r}_${c}`];
                 if (interState) {
-                    drawIntersection(interState, cx, cy, scale);
+                    drawIntersection(interState, cx, cy, scale, extX, extY);
+                }
+            }
+        }
+        
+        // Draw City View metrics AFTER all intersections to prevent clipping from adjacent roads
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const cx = (c + 0.5) * spacingX;
+                const cy = (r + 0.5) * spacingY;
+                const interState = state.grid[`${r}_${c}`];
+                
+                if (interState) {
+                    const totalVehicles = Object.values(interState.lanes || {}).reduce((acc, q) => acc + q.length, 0);
+                    ctx.save();
+                    ctx.translate(cx, cy);
+                    ctx.scale(scale, scale);
+                    
+                    ctx.font = 'bold 32px "Inter", sans-serif'; 
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                    ctx.beginPath();
+                    // Draw a responsive pill/rounded box
+                    const textMetrics = ctx.measureText(totalVehicles);
+                    const boxWidth = Math.max(80, textMetrics.width + 40);
+                    ctx.roundRect(-boxWidth/2, -40, boxWidth, 80, 20);
+                    ctx.fill();
+                    ctx.strokeStyle = totalVehicles > 15 ? '#ef4444' : (totalVehicles > 5 ? '#eab308' : '#10b981');
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
+                    
+                    ctx.fillStyle = '#ffffff';
+                    // Ensure accurate vertical centering relative to our roundRect
+                    ctx.fillText(totalVehicles, 0, 2);
+                    
+                    ctx.restore();
                 }
             }
         }

@@ -290,7 +290,52 @@ export default function DashboardView({ state }) {
           </div>
         </div>
 
-        <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 backdrop-blur-sm lg:col-span-1 justify-self-stretch self-stretch opacity-0 w-0 h-0 hidden" />
+        <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 backdrop-blur-sm lg:col-span-1">
+          <h3 className="text-lg font-medium text-zinc-200 mb-6 flex justify-between items-center">
+             Average & Max Wait Time
+             <span className="text-xs text-zinc-500 font-normal">Seconds</span>
+          </h3>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={currentDisplayHistory}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+                <XAxis dataKey="time" stroke="#a1a1aa" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '8px' }}
+                  itemStyle={{ color: '#e4e4e7' }}
+                  labelStyle={{ color: '#a1a1aa', marginBottom: '8px' }}
+                />
+                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }}/>
+                <Line name="Avg Wait" type="monotone" dataKey="wait" stroke="#f59e0b" strokeWidth={3} dot={{ fill: '#f59e0b', r: 4 }} isAnimationActive={false} />
+                <Line name="Max Wait" type="monotone" dataKey="maxWait" stroke="#ef4444" strokeWidth={2} strokeDasharray="5 5" dot={false} isAnimationActive={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 backdrop-blur-sm lg:col-span-1">
+          <h3 className="text-lg font-medium text-zinc-200 mb-6 flex justify-between items-center">
+             Active Vehicles
+             <span className="text-xs text-zinc-500 font-normal">Count</span>
+          </h3>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={currentDisplayHistory}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+                <XAxis dataKey="time" stroke="#a1a1aa" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '8px' }}
+                  itemStyle={{ color: '#e4e4e7' }}
+                  labelStyle={{ color: '#a1a1aa', marginBottom: '8px' }}
+                />
+                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }}/>
+                <Line name="Total Vehicles" type="monotone" dataKey="vehicles" stroke="#3b82f6" strokeWidth={3} dot={{ fill: '#3b82f6', r: 4 }} isAnimationActive={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
 
         <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 backdrop-blur-sm">
           <h3 className="text-lg font-medium text-zinc-200 mb-6">Vehicle Distribution</h3>

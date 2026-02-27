@@ -56,7 +56,7 @@ class TrafficEnv(gym.Env):
         self.drive_side = "right"
         self.min_green = 4
         self.max_green = 30
-        self.transition_delay = 2
+        self.transition_delay = 1
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -244,13 +244,16 @@ class TrafficEnv(gym.Env):
                     for v in queue:
                         wait_sec = v["wait_time"]
                         if v["type"] == "ambulance":
-                            ambulance_penalty += (wait_sec ** 1.5) * 10.0
+                            # Strongly penalize ambulance wait
+                            ambulance_penalty += (wait_sec ** 1.8) * 15.0
                         else:
-                            delay_penalty += (wait_sec ** 1.2) * 0.1
+                            # Higher exponent to penalize large localized delays heavily,
+                            # forcing RL to balance intersections across the grid.
+                            delay_penalty += (wait_sec ** 1.4) * 0.15
 
         reward = -delay_penalty - ambulance_penalty
 
         for v in all_cleared:
-             reward += 5.0 + (v["wait_time"] * 0.2)
+             reward += 5.0 + (v["wait_time"] * 0.3)
         
         return reward
