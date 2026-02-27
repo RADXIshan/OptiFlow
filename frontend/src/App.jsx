@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
-import { Activity, LayoutDashboard, Settings } from 'lucide-react';
+import { Activity, LayoutDashboard, Settings, Car, Clock, Timer } from 'lucide-react';
 import SimulationView from './components/SimulationView';
 import DashboardView from './components/DashboardView';
 import Controls from './components/Controls';
@@ -41,18 +41,60 @@ function Navigation() {
 
 function MainLayout() {
   const { simulationState, isConnected, error } = useSimulationSocket();
+  const location = useLocation();
+
+  const getPageTitle = (path) => {
+    switch(path) {
+      case '/': return 'Dashboard Analytics';
+      case '/simulation': return 'Live Traffic Simulation';
+      case '/controls': return 'AI Model Controls';
+      default: return 'System Overview';
+    }
+  };
+
+  const metrics = useMemo(() => {
+    if (!simulationState) return null;
+    const vehicles = simulationState.vehicles || [];
+    const totalVehicles = vehicles.length;
+    const totalWaitTime = vehicles.reduce((acc, v) => acc + (v.wait_time * 0.8), 0);
+    const avgWaitTime = totalVehicles > 0 ? (totalWaitTime / totalVehicles).toFixed(1) : 0;
+    return {
+      step: simulationState.step || 0,
+      totalVehicles,
+      avgWaitTime
+    };
+  }, [simulationState]);
 
   return (
     <div className="flex h-screen bg-black text-white overflow-hidden font-sans">
       <Navigation />
       
       <main className="flex-1 flex flex-col relative overflow-hidden">
-        <header className="h-16 border-b border-zinc-900 flex items-center justify-between px-8 bg-zinc-950/50 backdrop-blur-md z-10">
-          <h2 className="text-lg font-semibold text-zinc-200">System Overview</h2>
-          <div className="flex items-center gap-3">
+        <header className="h-16 border-b border-zinc-900 flex items-center justify-between px-8 bg-zinc-950/50 backdrop-blur-md z-10 shrink-0">
+          <h2 className="text-lg font-semibold text-zinc-200 tracking-tight">{getPageTitle(location.pathname)}</h2>
+          <div className="flex items-center gap-6">
+            {isConnected && metrics && (
+              <div className="hidden lg:flex items-center gap-6 text-sm border-r border-zinc-800 pr-6">
+                <div className="flex items-center gap-2 bg-zinc-900/50 px-3 py-1.5 rounded-full border border-zinc-800/80">
+                  <Timer size={14} className="text-blue-400" />
+                  <span className="text-zinc-400">Step</span>
+                  <span className="text-emerald-400 font-mono font-medium">{metrics.step}</span>
+                </div>
+                <div className="flex items-center gap-2 bg-zinc-900/50 px-3 py-1.5 rounded-full border border-zinc-800/80">
+                  <Car size={14} className="text-blue-400" />
+                  <span className="text-zinc-400">Active</span>
+                  <span className="text-zinc-100 font-mono font-medium">{metrics.totalVehicles}</span>
+                </div>
+                <div className="flex items-center gap-2 bg-zinc-900/50 px-3 py-1.5 rounded-full border border-zinc-800/80">
+                  <Clock size={14} className="text-amber-400" />
+                  <span className="text-zinc-400">Avg Wait</span>
+                  <span className="text-zinc-100 font-mono font-medium">{metrics.avgWaitTime}s</span>
+                </div>
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <div className={`w-2.5 h-2.5 rounded-full ${isConnected ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-red-500 animate-pulse'}`} />
-              <span className="text-sm text-zinc-400">
+              <span className="text-sm font-medium text-zinc-400">
                 {isConnected ? 'System Online' : 'Connecting Engine...'}
               </span>
             </div>
