@@ -479,28 +479,76 @@ export default function SimulationView({ state }) {
           )}
       </div>
 
-      <div className="absolute top-6 right-6 bg-zinc-950/80 backdrop-blur-md border border-zinc-800/50 p-4 rounded-xl shadow-2xl z-20 flex flex-col gap-3 min-w-[140px]">
-        <h3 className="text-zinc-200 text-xs font-bold uppercase tracking-wider mb-1">Vehicle Details</h3>
-        <div className="flex items-center gap-3">
-          <div className="w-4 h-3 bg-blue-500 rounded-sm"></div>
-          <span className="text-sm font-medium text-zinc-300">Car</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="w-5 h-3 bg-amber-500 rounded-sm"></div>
-          <span className="text-sm font-medium text-zinc-300">Bus</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="w-6 h-3 bg-purple-500 rounded-sm"></div>
-          <span className="text-sm font-medium text-zinc-300">Truck</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="w-2.5 h-2.5 bg-pink-500 rounded-full ml-1"></div>
-          <span className="text-sm font-medium text-zinc-300 ml-0.5">Bike</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="w-4 h-3 bg-red-500 rounded-sm shadow-[0_0_12px_rgba(239,68,68,0.8)]"></div>
-          <span className="text-sm font-medium text-zinc-300">Ambulance</span>
-        </div>
+      <div className="absolute top-6 right-6 bg-zinc-950/80 backdrop-blur-md border border-zinc-800/50 p-4 rounded-xl shadow-2xl z-20 flex flex-col gap-3 min-w-[200px]">
+        {(() => {
+          let vehicles = [];
+          if (viewMode === 'city') {
+             Object.values(state.grid || {}).forEach(inter => {
+                 Object.values(inter.lanes || {}).forEach(q => {
+                     vehicles.push(...q);
+                 });
+             });
+          } else {
+             const inter = state.grid?.[selectedCrossroad];
+             if (inter) {
+                 Object.values(inter.lanes || {}).forEach(q => {
+                     vehicles.push(...q);
+                 });
+             }
+          }
+
+          const counts = { total: 0, car: 0, truck: 0, bus: 0, bike: 0, ambulance: 0 };
+          vehicles.forEach(v => {
+              counts.total++;
+              if (counts[v.type] !== undefined) {
+                  counts[v.type]++;
+              }
+          });
+
+          return (
+            <>
+              <div className="flex justify-between items-center mb-1 border-b border-zinc-800 pb-2">
+                 <h3 className="text-zinc-200 text-xs font-bold uppercase tracking-wider">{viewMode === 'city' ? 'City' : 'Node'} Stats</h3>
+                 <span className="text-xs font-bold text-blue-400 bg-blue-400/10 px-2 py-1 rounded">Total: {counts.total}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-4 h-3 bg-blue-500 rounded-sm"></div>
+                  <span className="text-sm font-medium text-zinc-300">Car</span>
+                </div>
+                <span className="text-sm font-mono text-zinc-400">{counts.car}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-3 bg-amber-500 rounded-sm"></div>
+                  <span className="text-sm font-medium text-zinc-300">Bus</span>
+                </div>
+                <span className="text-sm font-mono text-zinc-400">{counts.bus}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-3 bg-purple-500 rounded-sm"></div>
+                  <span className="text-sm font-medium text-zinc-300">Truck</span>
+                </div>
+                <span className="text-sm font-mono text-zinc-400">{counts.truck}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-2.5 h-2.5 bg-pink-500 rounded-full ml-1"></div>
+                  <span className="text-sm font-medium text-zinc-300 ml-0.5">Bike</span>
+                </div>
+                <span className="text-sm font-mono text-zinc-400">{counts.bike}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-4 h-3 bg-red-500 rounded-sm shadow-[0_0_12px_rgba(239,68,68,0.8)]"></div>
+                  <span className="text-sm font-medium text-zinc-300">Ambulance</span>
+                </div>
+                <span className="text-sm font-mono text-zinc-400">{counts.ambulance}</span>
+              </div>
+            </>
+          );
+        })()}
       </div>
       
       <div className="flex flex-col items-center gap-4 w-full h-full max-h-[85vh]">
