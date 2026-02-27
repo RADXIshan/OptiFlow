@@ -194,15 +194,17 @@ class TrafficEnv(gym.Env):
         for r in range(self.rows):
             for c in range(self.cols):
                 if random.random() < base_density:
-                    lanes_to_spawn = []
                     # Allow spawning on the edges facing outwards
-                    if r == 0: lanes_to_spawn.extend(["N_left", "N_straight", "N_right"])
-                    if r == self.rows - 1: lanes_to_spawn.extend(["S_left", "S_straight", "S_right"])
-                    if c == 0: lanes_to_spawn.extend(["W_left", "W_straight", "W_right"])
-                    if c == self.cols - 1: lanes_to_spawn.extend(["E_left", "E_straight", "E_right"])
+                    available_dirs = []
+                    if r == 0: available_dirs.append("N")
+                    if r == self.rows - 1: available_dirs.append("S")
+                    if c == 0: available_dirs.append("W")
+                    if c == self.cols - 1: available_dirs.append("E")
                     
-                    if lanes_to_spawn:
-                        lane = random.choice(lanes_to_spawn)
+                    if available_dirs:
+                        spawn_dir = random.choice(available_dirs)
+                        turn = random.choices(["straight", "left", "right"], weights=[0.4, 0.3, 0.3])[0]
+                        lane = f"{spawn_dir}_{turn}"
                         v_type = random.choices(self.vehicle_types, weights=self.vehicle_weights)[0]
                         self.grid[(r, c)].lanes[lane].append({"type": v_type, "wait_time": 0})
 

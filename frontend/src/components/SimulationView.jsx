@@ -251,6 +251,15 @@ export default function SimulationView({ state }) {
           }
 
           let currentOffset = spacingOffset;
+          // Calculate max allowed distance from intersection center based on queue direction
+          let maxCenterPos = Infinity;
+          if (viewMode === 'city') {
+              if (dy === 0) {
+                  maxCenterPos = extX - hs + 15; // horizontal roads, stop just before the upstream intersection box
+              } else if (dx === 0) {
+                  maxCenterPos = extY - hs + 15; // vertical roads
+              }
+          }
 
           queue.forEach((vehicle) => {
             let vLength = 24;
@@ -259,10 +268,15 @@ export default function SimulationView({ state }) {
             if (vehicle.type === 'bike') vLength = 10;
 
             const centerPos = currentOffset + vLength / 2;
+            currentOffset += vLength + 8; 
+
+            // Do not render the vehicle if it is overflowing into the upstream adjacent intersection box
+            if (centerPos > maxCenterPos) {
+                return;
+            }
+
             const x = startX + dx * centerPos;
             const y = startY + dy * centerPos;
-
-            currentOffset += vLength + 8; 
 
             const colors = {
                 'car': '#3b82f6',
