@@ -57,44 +57,64 @@ async def run_simulation_loop():
     obs, info = env.reset()
     
     while True:
-        if SIMULATION_RUNNING:
-            # RL model takes an action
-            action, _states = rl_model.predict(obs, deterministic=True)
-            
-            # Step the environment
-            obs, reward, terminated, truncated, info = env.step(action.item())
-            
-            # Broadcast state
-            state_data = {
-                "step": info["step"],
-                "phase": env.current_phase,
-                "is_transitioning": getattr(env, 'is_transitioning', False),
-                "reward": reward,
-                "lanes": env.lanes, # detailed info on queues
-                "vehicles": [v for q in env.lanes.values() for v in q], # flat list for easy stats
-                "drive_side": env.drive_side,
-                "is_running": True
-            }
-            await manager.broadcast(state_data)
-            
-            if terminated or truncated:
-                obs, info = env.reset()
+        try:
+            if SIMULATION_RUNNING:
+                # RL model takes an action
+                action, _states = rl_model.predict(obs, deterministic=True)
                 
-            # Tick every 0.8 seconds to make simulation more realistic and followable
-            await asyncio.sleep(0.8)
-        else:
-            state_data = {
-                "step": env.step_count,
-                "phase": env.current_phase,
-                "is_transitioning": getattr(env, 'is_transitioning', False),
-                "reward": 0,
-                "lanes": env.lanes,
-                "vehicles": [v for q in env.lanes.values() for v in q],
-                "drive_side": env.drive_side,
-                "is_running": False
-            }
-            await manager.broadcast(state_data)
-            await asyncio.sleep(1.0)
+                # Step the environment
+                obs, reward, terminated, truncated, info = env.step(action)
+                
+                # Broadcast state
+                all_vehicles = []
+                for r in range(env.rows):
+                    for c in range(env.cols):
+                        for q in env.grid[(r, c)].lanes.values():
+                            all_vehicles.extend(q)
+                
+                state_data = {
+                    "step": int(info["step"]),
+                    "grid": info["grid"],
+                    "reward": float(reward),
+                    "vehicles": all_vehicles,
+                    "drive_side": env.drive_side,
+                    "is_running": True
+                }
+                await manager.broadcast(state_data)
+                
+                if terminated or truncated:
+                    obs, info = env.reset()
+                    
+                # Tick every 0.8 seconds to make simulation more realistic and followable
+                await asyncio.sleep(0.8)
+            else:
+                grid_state = {}
+                all_vehicles = []
+                for r in range(env.rows):
+                    for c in range(env.cols):
+                        inter = env.grid[(r, c)]
+                        grid_state[f"{r}_{c}"] = {
+                            "lanes": inter.lanes,
+                            "phase": int(inter.current_phase),
+                            "is_transitioning": bool(inter.is_transitioning)
+                        }
+                        for q in inter.lanes.values():
+                            all_vehicles.extend(q)
+
+                state_data = {
+                    "step": int(env.step_count),
+                    "grid": grid_state,
+                    "reward": 0.0,
+                    "vehicles": all_vehicles,
+                    "drive_side": env.drive_side,
+                    "is_running": False
+                }
+                await manager.broadcast(state_data)
+                await asyncio.sleep(1.0)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            await asyncio.sleep(2.0)
 
 @app.on_event("startup")
 async def startup_event():

@@ -18,8 +18,11 @@ async def update_simulation_config(config: SimulationConfig):
     if config.spawn_ambulance:
         # Spawn one ambulance in a random lane
         import random
-        lane = random.choice(list(main_app.env.lanes.keys()))
-        main_app.env.lanes[lane].append({"type": "ambulance", "wait_time": 0})
+        r = random.randint(0, main_app.env.rows - 1)
+        c = random.randint(0, main_app.env.cols - 1)
+        inter = main_app.env.grid[(r, c)]
+        lane = random.choice(list(inter.lanes.keys()))
+        inter.lanes[lane].append({"type": "ambulance", "wait_time": 0})
     return {"status": "success", "config": config.model_dump()}
 
 @router.post("/simulation/start")

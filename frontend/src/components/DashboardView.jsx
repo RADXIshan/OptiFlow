@@ -5,6 +5,8 @@ import { Activity, Car, Clock, ShieldAlert, AlertTriangle, Info, X } from 'lucid
 export default function DashboardView({ state }) {
   const [history, setHistory] = useState([]);
   const [isPhaseModalOpen, setIsPhaseModalOpen] = useState(false);
+  const [viewMode, setViewMode] = useState('city');
+  const [selectedCrossroad, setSelectedCrossroad] = useState('0_0');
 
   useEffect(() => {
     if (!state) return;
@@ -18,10 +20,14 @@ export default function DashboardView({ state }) {
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour12: true, hour: 'numeric', minute: '2-digit', second: '2-digit' });
 
-    const totalVehicles = state.vehicles?.length || 0;
-    const totalWaitTime = state.vehicles?.reduce((acc, v) => acc + (v.wait_time * 0.8), 0) || 0;
+    const validVehicles = viewMode === 'city' 
+      ? (state.vehicles || [])
+      : (state.grid && state.grid[selectedCrossroad] ? Object.values(state.grid[selectedCrossroad].lanes).flat() : []);
+
+    const totalVehicles = validVehicles.length;
+    const totalWaitTime = validVehicles.reduce((acc, v) => acc + (v.wait_time * 0.8), 0);
     const avgWaitTime = totalVehicles > 0 ? parseFloat((totalWaitTime / totalVehicles).toFixed(1)) : 0;
-    const maxWaitTime = totalVehicles > 0 ? parseFloat((Math.max(...state.vehicles.map(v => v.wait_time)) * 0.8).toFixed(1)) : 0;
+    const maxWaitTime = totalVehicles > 0 ? parseFloat((Math.max(...validVehicles.map(v => v.wait_time)) * 0.8).toFixed(1)) : 0;
 
     const actualEmissions = totalWaitTime * 0.00025;
     const badEmissions = totalVehicles * 90 * 0.00025;
@@ -29,7 +35,7 @@ export default function DashboardView({ state }) {
 
     setHistory(prev => {
       // Avoid duplicate points for the same step (just simpler)
-      if (prev.length > 0 && prev[prev.length - 1].step === state.step) {
+      if (prev.length > 0 && prev[prev.length - 1].step === state.step && prev[prev.length - 1].view === viewMode + selectedCrossroad) {
          return prev;
       }
       const newPoint = { 
@@ -38,21 +44,31 @@ export default function DashboardView({ state }) {
         maxWait: maxWaitTime,
         vehicles: totalVehicles, 
         step: state.step,
+        view: viewMode + selectedCrossroad,
         actualCO2: parseFloat(actualEmissions.toFixed(3)),
         badCO2: parseFloat(badEmissions.toFixed(3)),
         goodCO2: parseFloat(goodEmissions.toFixed(3))
       };
-      const newData = [...prev, newPoint];
+      
+      const filteredPrev = prev.filter(p => p.view === newPoint.view);
+      const newData = [...filteredPrev, newPoint];
       if (newData.length > 20) return newData.slice(newData.length - 20);
       return newData;
     });
-  }, [state]);
+  }, [state, viewMode, selectedCrossroad]);
+
+  const validVehicles = useMemo(() => {
+     if (!state) return [];
+     return viewMode === 'city' 
+      ? (state.vehicles || [])
+      : (state.grid && state.grid[selectedCrossroad] ? Object.values(state.grid[selectedCrossroad].lanes).flat() : []);
+  }, [state, viewMode, selectedCrossroad]);
 
   const vehicleTypeDistribution = useMemo(() => {
-    if (!state || !state.vehicles) return [];
+    if (!validVehicles || validVehicles.length === 0) return [];
     
     // Count different types
-    const counts = state.vehicles.reduce((acc, v) => {
+    const counts = validVehicles.reduce((acc, v) => {
       acc[v.type] = (acc[v.type] || 0) + 1;
       return acc;
     }, {});
@@ -61,7 +77,7 @@ export default function DashboardView({ state }) {
     return Object.entries(counts)
       .map(([name, value]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), value }))
       .filter(item => item.value > 0);
-  }, [state]);
+  }, [validVehicles]);
 
   if (!state) {
     return (
@@ -75,12 +91,12 @@ export default function DashboardView({ state }) {
   }
 
   // Calculate some aggregate metrics
-  const totalVehicles = state.vehicles?.length || 0;
-  const ambulances = state.vehicles?.filter(v => v.type === 'ambulance').length || 0;
+  const totalVehicles = validVehicles.length;
+  const ambulances = validVehicles.filter(v => v.type === 'ambulance').length;
   
-  const totalWaitTime = state.vehicles?.reduce((acc, v) => acc + (v.wait_time * 0.8), 0) || 0;
+  const totalWaitTime = validVehicles.reduce((acc, v) => acc + (v.wait_time * 0.8), 0);
   const avgWaitTime = totalVehicles > 0 ? parseFloat((totalWaitTime / totalVehicles).toFixed(1)) : 0;
-  const maxWaitTime = totalVehicles > 0 ? parseFloat((Math.max(...state.vehicles.map(v => v.wait_time)) * 0.8).toFixed(1)) : 0;
+  const maxWaitTime = totalVehicles > 0 ? parseFloat((Math.max(...validVehicles.map(v => v.wait_time)) * 0.8).toFixed(1)) : 0;
 
   const phaseDescriptions = {
     0: "N-S Green (Straight/Right)",
@@ -89,9 +105,23 @@ export default function DashboardView({ state }) {
     3: "E-W Green (Left Turn)",
   };
 
-  const laneChartData = Object.keys(state.lanes || {}).map(lane => ({
+  const laneTotals = {};
+  if (state.grid) {
+    if (viewMode === 'city') {
+        Object.values(state.grid).forEach(inter => {
+          Object.entries(inter.lanes).forEach(([lane, q]) => {
+             laneTotals[lane] = (laneTotals[lane] || 0) + q.length;
+          });
+        });
+    } else if (state.grid[selectedCrossroad]) {
+        Object.entries(state.grid[selectedCrossroad].lanes).forEach(([lane, q]) => {
+             laneTotals[lane] = (laneTotals[lane] || 0) + q.length;
+        });
+    }
+  }
+  const laneChartData = Object.keys(laneTotals).map(lane => ({
     name: lane.replace('_', ' '),
-    queueSize: state.lanes[lane].length
+    queueSize: laneTotals[lane]
   }));
 
   const COLORS = {
@@ -105,26 +135,28 @@ export default function DashboardView({ state }) {
   let vehicleTrend = 0;
   let waitTrend = 0;
   let maxWaitTrend = 0;
-  if (history.length > 1) {
-    const avgVehiclesHistory = history.reduce((acc, curr) => acc + curr.vehicles, 0) / history.length;
+  
+  const filteredHistory = history.filter(h => h.view === viewMode + selectedCrossroad);
+  if (filteredHistory.length > 1) {
+    const avgVehiclesHistory = filteredHistory.reduce((acc, curr) => acc + curr.vehicles, 0) / filteredHistory.length;
     vehicleTrend = totalVehicles - avgVehiclesHistory;
 
-    const avgWaitHistory = history.reduce((acc, curr) => acc + curr.wait, 0) / history.length;
+    const avgWaitHistory = filteredHistory.reduce((acc, curr) => acc + curr.wait, 0) / filteredHistory.length;
     waitTrend = avgWaitTime - avgWaitHistory;
 
-    const avgMaxWaitHistory = history.reduce((acc, curr) => acc + curr.maxWait, 0) / history.length;
+    const avgMaxWaitHistory = filteredHistory.reduce((acc, curr) => acc + curr.maxWait, 0) / filteredHistory.length;
     maxWaitTrend = maxWaitTime - avgMaxWaitHistory;
   }
 
-  const vehicleTrendStr = history.length > 1 ? (vehicleTrend >= 0 ? `+${vehicleTrend.toFixed(1)} from avg` : `${vehicleTrend.toFixed(1)} from avg`) : 'Gathering data...';
-  const waitTrendStr = history.length > 1 ? (waitTrend >= 0 ? `+${waitTrend.toFixed(1)}s vs avg` : `${waitTrend.toFixed(1)}s vs avg`) : 'Gathering data...';
-  const maxWaitTrendStr = history.length > 1 ? (maxWaitTrend >= 0 ? `+${maxWaitTrend.toFixed(1)}s vs avg` : `${maxWaitTrend.toFixed(1)}s vs avg`) : 'Gathering data...';
+  const vehicleTrendStr = filteredHistory.length > 1 ? (vehicleTrend >= 0 ? `+${vehicleTrend.toFixed(1)} from avg` : `${vehicleTrend.toFixed(1)} from avg`) : 'Gathering data...';
+  const waitTrendStr = filteredHistory.length > 1 ? (waitTrend >= 0 ? `+${waitTrend.toFixed(1)}s vs avg` : `${waitTrend.toFixed(1)}s vs avg`) : 'Gathering data...';
+  const maxWaitTrendStr = filteredHistory.length > 1 ? (maxWaitTrend >= 0 ? `+${maxWaitTrend.toFixed(1)}s vs avg` : `${maxWaitTrend.toFixed(1)}s vs avg`) : 'Gathering data...';
   
   const vehicleTrendColor = vehicleTrend > 0 ? 'text-amber-400 bg-amber-400/10' : 'text-emerald-400 bg-emerald-400/10';
   const waitTrendColor = waitTrend > 0 ? 'text-amber-400 bg-amber-400/10' : 'text-emerald-400 bg-emerald-400/10';
   const maxWaitTrendColor = maxWaitTrend > 0 ? 'text-amber-400 bg-amber-400/10' : 'text-emerald-400 bg-emerald-400/10';
 
-  let currentDisplayHistory = [...history];
+  let currentDisplayHistory = [...filteredHistory];
   if (currentDisplayHistory.length === 0) {
       const now = new Date();
       const minutes = now.getMinutes();
@@ -158,9 +190,44 @@ export default function DashboardView({ state }) {
      congestionLevel = "Moderate";
      congestionColor = "text-amber-400";
   }
+  
+  const coords = Object.keys(state.grid || {});
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-zinc-900/40 p-4 rounded-xl border border-zinc-800/80">
+          <div>
+              <h2 className="text-xl font-bold text-white">Metrics Scope</h2>
+              <p className="text-zinc-500 text-sm">Filter realtime analytics by node</p>
+          </div>
+          <div className="flex gap-3">
+              <button 
+                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${viewMode === 'city' ? 'bg-blue-600 text-white shadow-lg' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
+                  onClick={() => setViewMode('city')}
+              >
+                  City Average
+              </button>
+              <button 
+                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${viewMode === 'crossroad' ? 'bg-blue-600 text-white shadow-lg' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
+                  onClick={() => setViewMode('crossroad')}
+              >
+                  Specific Crossroad
+              </button>
+              
+              {viewMode === 'crossroad' && (
+                  <select 
+                      value={selectedCrossroad}
+                      onChange={(e) => setSelectedCrossroad(e.target.value)}
+                      className="bg-zinc-800 text-zinc-200 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                  >
+                      {coords.map(k => (
+                          <option key={k} value={k}>Intersection {k.replace('_', ',')}</option>
+                      ))}
+                  </select>
+              )}
+          </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         <MetricCard 
           title="Active Vehicles" 
@@ -190,10 +257,10 @@ export default function DashboardView({ state }) {
           icon={<ShieldAlert className={ambulances > 0 ? "text-red-500 animate-pulse" : "text-zinc-500"} />} 
         />
         <MetricCard 
-          title="Current Phase" 
-          value={state.is_transitioning ? `Phase ${state.phase} (Yellow)` : `Phase ${state.phase}`} 
-          icon={<Activity className={state.is_transitioning ? "text-amber-400" : "text-emerald-400"} />} 
-          subtitle={state.is_transitioning ? "Transitioning..." : (phaseDescriptions[state.phase] || "RL Determined")}
+          title={`Phase (${viewMode === 'city' ? 'Avg/City' : `Node ${selectedCrossroad.replace('_',',')}`})`} 
+          value={viewMode === 'crossroad' ? (state.grid && state.grid[selectedCrossroad] ? (state.grid[selectedCrossroad].is_transitioning ? `Phase ${state.grid[selectedCrossroad].phase} (Yellow)` : `Phase ${state.grid[selectedCrossroad].phase}`) : 'N/A') : `City Overview`} 
+          icon={<Activity className={viewMode === 'crossroad' && state.grid && state.grid[selectedCrossroad]?.is_transitioning ? "text-amber-400" : "text-emerald-400"} />} 
+          subtitle={viewMode === 'crossroad' && state.grid && state.grid[selectedCrossroad]?.is_transitioning ? "Transitioning..." : (viewMode === 'crossroad' ? (phaseDescriptions[state.grid ? state.grid[selectedCrossroad].phase : 0] || "RL Determined") : "Multi-Agent Active")}
           onInfoClick={() => setIsPhaseModalOpen(true)}
         />
         <MetricCard 
@@ -207,7 +274,7 @@ export default function DashboardView({ state }) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 backdrop-blur-sm">
           <h3 className="text-lg font-medium text-zinc-200 mb-6">Queue Length by Lane</h3>
-          <div className="h-72">
+          <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={laneChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
@@ -223,53 +290,11 @@ export default function DashboardView({ state }) {
           </div>
         </div>
 
-        <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 backdrop-blur-sm lg:col-span-1">
-          <h3 className="text-lg font-medium text-zinc-200 mb-6 flex justify-between items-center">
-             Average vs Max Wait Time Trend 
-          </h3>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={currentDisplayHistory}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
-                <XAxis dataKey="time" stroke="#a1a1aa" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '8px' }}
-                  itemStyle={{ color: '#e4e4e7' }}
-                  labelStyle={{ color: '#a1a1aa', marginBottom: '8px' }}
-                />
-                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }}/>
-                <Line name="Avg Wait (s)" type="monotone" dataKey="wait" stroke="#10b981" strokeWidth={3} dot={{ fill: '#10b981', r: 4 }} isAnimationActive={false} />
-                <Line name="Max Wait (s)" type="monotone" dataKey="maxWait" stroke="#ef4444" strokeWidth={3} dot={{ fill: '#ef4444', r: 4 }} isAnimationActive={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 backdrop-blur-sm lg:col-span-1">
-          <h3 className="text-lg font-medium text-zinc-200 mb-6 flex justify-between items-center">
-             Active Vehicles Pipeline
-          </h3>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={currentDisplayHistory}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
-                <XAxis dataKey="time" stroke="#a1a1aa" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '8px' }}
-                  itemStyle={{ color: '#e4e4e7' }}
-                  labelStyle={{ color: '#a1a1aa', marginBottom: '8px' }}
-                />
-                <Line name="Vehicles" type="monotone" dataKey="vehicles" stroke="#3b82f6" strokeWidth={3} dot={{ fill: '#3b82f6', r: 4 }} isAnimationActive={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 backdrop-blur-sm lg:col-span-1 justify-self-stretch self-stretch opacity-0 w-0 h-0 hidden" />
 
         <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 backdrop-blur-sm">
           <h3 className="text-lg font-medium text-zinc-200 mb-6">Vehicle Distribution</h3>
-          <div className="h-72 flex items-center justify-center">
+          <div className="h-80 flex items-center justify-center">
             {vehicleTypeDistribution.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>

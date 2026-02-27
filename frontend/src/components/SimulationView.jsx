@@ -1,361 +1,354 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 
 export default function SimulationView({ state }) {
   const canvasRef = useRef(null);
+  const [viewMode, setViewMode] = useState('city'); // 'city' or 'crossroad'
+  const [selectedCrossroad, setSelectedCrossroad] = useState('0_0');
 
   useEffect(() => {
-    if (!state || !canvasRef.current) return;
+    if (!state || !state.grid || !canvasRef.current) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     
     // Canvas dimensions
-    const width = canvas.width = 800;
-    const height = canvas.height = 800;
+    const width = canvas.width = 1200;
+    const height = canvas.height = 1200;
     
     // Clear canvas
-    ctx.fillStyle = '#0a0a0a'; // Background
+    ctx.fillStyle = '#0a0a0a'; 
     ctx.fillRect(0, 0, width, height);
     
-    // Geometry
-    const roadWidth = 240;
-    const center = { x: width / 2, y: height / 2 };
-    const hs = roadWidth / 2; // half size
-    
-    // Layout Direction: 1 for Right-Hand Drive, -1 for Left-Hand Drive
     const lDir = state.drive_side === 'left' ? -1 : 1;
 
-    // Draw Roads
-    ctx.fillStyle = '#18181b'; // Road color
-    ctx.fillRect(center.x - hs, 0, roadWidth, height);
-    ctx.fillRect(0, center.y - hs, width, roadWidth);
-    
-    // Intersection
-    ctx.fillStyle = '#27272a';
-    ctx.fillRect(center.x - hs, center.y - hs, roadWidth, roadWidth);
-
-    // Crosswalks
-    const cwWidth = 30;
-    ctx.fillStyle = '#d4d4d8';
-    // North crosswalk
-    for (let i = center.x - hs + 10; i < center.x + hs; i += 20) {
-      ctx.fillRect(i, center.y - hs - cwWidth, 10, cwWidth - 5);
-      // South crosswalk
-      ctx.fillRect(i, center.y + hs + 5, 10, cwWidth - 5);
-    }
-    // West crosswalk
-    for (let i = center.y - hs + 10; i < center.y + hs; i += 20) {
-      ctx.fillRect(center.x - hs - cwWidth, i, cwWidth - 5, 10);
-      // East crosswalk
-      ctx.fillRect(center.x + hs + 5, i, cwWidth - 5, 10);
-    }
-
-    // Draw Lane Dividers
-    ctx.strokeStyle = '#facc15'; // Double yellow line in the middle
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(center.x - 2, 0); ctx.lineTo(center.x - 2, center.y - hs - cwWidth);
-    ctx.moveTo(center.x + 2, 0); ctx.lineTo(center.x + 2, center.y - hs - cwWidth);
-    
-    ctx.moveTo(center.x - 2, center.y + hs + cwWidth); ctx.lineTo(center.x - 2, height);
-    ctx.moveTo(center.x + 2, center.y + hs + cwWidth); ctx.lineTo(center.x + 2, height);
-    
-    ctx.moveTo(0, center.y - 2); ctx.lineTo(center.x - hs - cwWidth, center.y - 2);
-    ctx.moveTo(0, center.y + 2); ctx.lineTo(center.x - hs - cwWidth, center.y + 2);
-    
-    ctx.moveTo(center.x + hs + cwWidth, center.y - 2); ctx.lineTo(width, center.y - 2);
-    ctx.moveTo(center.x + hs + cwWidth, center.y + 2); ctx.lineTo(width, center.y + 2);
-    ctx.stroke();
-
-    // White dashed lines for lanes
-    ctx.strokeStyle = '#e4e4e7';
-    ctx.setLineDash([15, 15]);
-    ctx.lineWidth = 2;
-    const laneW = hs / 3;
-    
-    // Uses absolute laneW since it's just visual dashed lines, flip doesn't strictly matter for symmetrical dashes but good for consistency
-    [center.x - laneW, center.x - 2*laneW].forEach(x => {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, center.y - hs - cwWidth); ctx.stroke();
+    // Grid details
+    const coords = Object.keys(state.grid).map(k => {
+       const [r, c] = k.split('_').map(Number);
+       return {r, c};
     });
-    [center.x + laneW, center.x + 2*laneW].forEach(x => {
-        ctx.beginPath(); ctx.moveTo(x, center.y + hs + cwWidth); ctx.lineTo(x, height); ctx.stroke();
-    });
-    [center.y - laneW, center.y - 2*laneW].forEach(y => {
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(center.x - hs - cwWidth, y); ctx.stroke();
-    });
-    [center.y + laneW, center.y + 2*laneW].forEach(y => {
-        ctx.beginPath(); ctx.moveTo(center.x + hs + cwWidth, y); ctx.lineTo(width, y); ctx.stroke();
-    });
-    ctx.setLineDash([]);
+    const rows = Math.max(...coords.map(c => c.r)) + 1;
+    const cols = Math.max(...coords.map(c => c.c)) + 1;
 
-    // Stop lines
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(center.x - hs, center.y - hs - cwWidth - 5, hs, 5); // North incoming (moving South)
-    ctx.fillRect(center.x, center.y + hs + cwWidth, hs, 5); // South incoming (moving North)
-    ctx.fillRect(center.x + hs + cwWidth, center.y - hs, 5, hs); // East incoming (moving West)
-    ctx.fillRect(center.x - hs - cwWidth - 5, center.y, 5, hs); // West incoming (moving East)
-
-    // Directional Arrows
-    const drawArrow = (x, y, dir, type) => {
+    const drawIntersection = (interState, cx, cy, scale) => {
         ctx.save();
-        ctx.translate(x, y);
-        ctx.rotate(dir * Math.PI / 180);
-        
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-        
-        // Helper closures to draw paths cleanly
-        const pathStraight = () => {
-            ctx.moveTo(-6, 20); ctx.lineTo(6, 20); ctx.lineTo(6, -5); 
-            ctx.lineTo(14, -5); ctx.lineTo(0, -25); ctx.lineTo(-14, -5); ctx.lineTo(-6, -5);
-        };
-        const pathLeft = () => {
-            ctx.moveTo(-6, 20); ctx.lineTo(6, 20); ctx.lineTo(6, 4); ctx.lineTo(-10, 4);
-            ctx.lineTo(-10, -4); ctx.lineTo(-4, -4); ctx.lineTo(-14, -18); ctx.lineTo(-24, -4); ctx.lineTo(-18, -4); ctx.lineTo(-18, 12); ctx.lineTo(-6, 12);
-        };
-        const pathRight = () => {
-             ctx.moveTo(-6, 20); ctx.lineTo(6, 20); ctx.lineTo(6, 12); ctx.lineTo(18, 12);
-             ctx.lineTo(18, -4); ctx.lineTo(24, -4); ctx.lineTo(14, -18); ctx.lineTo(4, -4); ctx.lineTo(10, -4); ctx.lineTo(10, 4); ctx.lineTo(-6, 4);
-        };
+        ctx.translate(cx, cy);
+        ctx.scale(scale, scale);
 
-        ctx.beginPath();
-        if (type === 'straight') {
-            pathStraight();
-        } else if (type === 'left') {
-            pathLeft();
-        } else if (type === 'right') {
-            pathRight();
-        } else if (type === 'straight_left') {
-            pathStraight();
-            ctx.closePath();
-            ctx.moveTo(-6, 4); ctx.lineTo(6, 4); 
-            ctx.lineTo(6, 4); ctx.lineTo(-10, 4);
-            ctx.lineTo(-10, -4); ctx.lineTo(-4, -4); ctx.lineTo(-14, -18); ctx.lineTo(-24, -4); ctx.lineTo(-18, -4); ctx.lineTo(-18, 12); ctx.lineTo(-6, 12);
-        } else if (type === 'straight_right') {
-            pathStraight();
-            ctx.closePath();
-            ctx.moveTo(-6, 4); ctx.lineTo(6, 4);
-            ctx.lineTo(6, 12); ctx.lineTo(18, 12);
-            ctx.lineTo(18, -4); ctx.lineTo(24, -4); ctx.lineTo(14, -18); ctx.lineTo(4, -4); ctx.lineTo(10, -4); ctx.lineTo(10, 4); ctx.lineTo(-6, 4);
+        const roadWidth = 240;
+        const hs = roadWidth / 2;
+        const roadExt = 800; // Extend roads outwards to connect with neighbors
+        
+        // Draw Roads
+        ctx.fillStyle = '#18181b'; 
+        ctx.fillRect(-hs, -roadExt, roadWidth, roadExt * 2);
+        ctx.fillRect(-roadExt, -hs, roadExt * 2, roadWidth);
+        
+        // Intersection Center
+        ctx.fillStyle = '#27272a';
+        ctx.fillRect(-hs, -hs, roadWidth, roadWidth);
+
+        // Crosswalks
+        const cwWidth = 30;
+        ctx.fillStyle = '#d4d4d8';
+        for (let i = -hs + 10; i < hs; i += 20) {
+          ctx.fillRect(i, -hs - cwWidth, 10, cwWidth - 5);
+          ctx.fillRect(i, hs + 5, 10, cwWidth - 5);
         }
-        ctx.fill();
-        ctx.restore();
-    };
-
-    // Driving Side Logic mapping
-    // Left-most lane: index 0.5 under RHD (inner), index 2.5 under LHD (outer)
-    // Middle lane (index 1.5): always straight.
-    // Right-most lane: index 2.5 under RHD (outer), index 0.5 under LHD (inner)
-    
-    // As per user request:
-    // LHD (lDir=-1): Left-most (outer, index 2.5) is left turn only. Right-most (inner, index 0.5) is straight + right.
-    // RHD (lDir=1): Left-most (inner, index 0.5) is straight + left. Right-most (outer, index 2.5) is right turn only.
-    
-    // In our coordinate system before drawing, 'innerArrow' is index 0.5 (physically closest to center meridian), 'outerArrow' is index 2.5 (closest to sidewalk)
-    let innerArrow, middleArrow, outerArrow;
-    if (lDir === 1) { // RHD
-        // inner (index 0.5, Left-most visually since road draws left-to-right relative to center)
-        innerArrow = 'straight_left'; 
-        middleArrow = 'straight';
-        // outer (index 2.5, Right-most visually)
-        outerArrow = 'right';
-    } else { // LHD
-        // For LHD, drawing order relies on `lDir = -1`. 
-        // Thus center.x - (lDir * 0.5 * laneW) becomes center.x + 0.5 * laneW -> meaning innerArrow is drawn on the physical RIGHT SIDE of the approach.
-        // Therefore, innerArrow is the Right-most lane visually.
-        innerArrow = 'straight_right';
-        middleArrow = 'straight';
-        // outerArrow (index 2.5) gets drawn at center.x + 2.5 * laneW, which is the physical LEFT SIDE.
-        // Therefore outerArrow is the Left-most lane visually.
-        outerArrow = 'left';
-    }
-
-    // Since we flipped `lDir` multiplication in the draws, the offsets naturally handle positioning left-to-right on screen!
-    
-    // North incoming (pointing South, orientation 180)
-    drawArrow(center.x - lDir*0.5*laneW, center.y - hs - cwWidth - 60, 180, innerArrow);
-    drawArrow(center.x - lDir*1.5*laneW, center.y - hs - cwWidth - 60, 180, middleArrow);
-    drawArrow(center.x - lDir*2.5*laneW, center.y - hs - cwWidth - 60, 180, outerArrow);
-
-    // South incoming (pointing North, orientation 0)
-    drawArrow(center.x + lDir*0.5*laneW, center.y + hs + cwWidth + 60, 0, innerArrow);
-    drawArrow(center.x + lDir*1.5*laneW, center.y + hs + cwWidth + 60, 0, middleArrow);
-    drawArrow(center.x + lDir*2.5*laneW, center.y + hs + cwWidth + 60, 0, outerArrow);
-
-    // East incoming (pointing West, orientation -90)
-    drawArrow(center.x + hs + cwWidth + 60, center.y - lDir*0.5*laneW, -90, innerArrow);
-    drawArrow(center.x + hs + cwWidth + 60, center.y - lDir*1.5*laneW, -90, middleArrow);
-    drawArrow(center.x + hs + cwWidth + 60, center.y - lDir*2.5*laneW, -90, outerArrow);
-
-    // West incoming (pointing East, orientation 90)
-    drawArrow(center.x - hs - cwWidth - 60, center.y + lDir*0.5*laneW, 90, innerArrow);
-    drawArrow(center.x - hs - cwWidth - 60, center.y + lDir*1.5*laneW, 90, middleArrow);
-    drawArrow(center.x - hs - cwWidth - 60, center.y + lDir*2.5*laneW, 90, outerArrow);
-
-    // Map Phase to Green Lights
-    const phase = state.phase;
-    const isTrans = state.is_transitioning || false;
-    
-    const drawTrafficLight = (x, y, isActivePhase, orientation) => {
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(orientation * Math.PI / 180);
-      
-      // Housing
-      ctx.fillStyle = '#09090b';
-      ctx.fillRect(-8, -20, 16, 40);
-      ctx.strokeStyle = '#27272a';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(-8, -20, 16, 40);
-      
-      const drawBulb = (by, color, isActive) => {
-          ctx.beginPath();
-          ctx.arc(0, by, 4.5, 0, Math.PI * 2);
-          ctx.fillStyle = isActive ? color : '#1f2937';
-          if (isActive) {
-              ctx.shadowColor = color;
-              ctx.shadowBlur = 12;
-          }
-          ctx.fill();
-          ctx.shadowBlur = 0;
-      };
-      
-      const showGreen = isActivePhase && !isTrans;
-      const showYellow = isActivePhase && isTrans;
-      const showRed = !isActivePhase;
-
-      drawBulb(-12, '#ef4444', showRed); // Red
-      drawBulb(0, '#eab308', showYellow);      // Yellow
-      drawBulb(12, '#10b981', showGreen);   // Green
-      
-      ctx.restore();
-    };
-
-    // Lights for North Incoming (facing North, so orientation 180)
-    const cwOffset = cwWidth + 12;
-    drawTrafficLight(center.x - lDir*0.5*laneW, center.y - hs - cwOffset, phase === 1, 180); // Left/Cross
-    drawTrafficLight(center.x - lDir*1.5*laneW, center.y - hs - cwOffset, phase === 0, 180); // Straight
-    drawTrafficLight(center.x - lDir*2.5*laneW, center.y - hs - cwOffset, phase === 0, 180); // Right/Non-Cross
-
-    // Lights for South Incoming (facing South, orientation 0)
-    drawTrafficLight(center.x + lDir*0.5*laneW, center.y + hs + cwOffset, phase === 1, 0); // Left/Cross
-    drawTrafficLight(center.x + lDir*1.5*laneW, center.y + hs + cwOffset, phase === 0, 0); // Straight
-    drawTrafficLight(center.x + lDir*2.5*laneW, center.y + hs + cwOffset, phase === 0, 0); // Right/Non-Cross
-
-    // Lights for East Incoming (facing East, orientation -90)
-    drawTrafficLight(center.x + hs + cwOffset, center.y - lDir*0.5*laneW, phase === 3, -90); // Left/Cross
-    drawTrafficLight(center.x + hs + cwOffset, center.y - lDir*1.5*laneW, phase === 2, -90); // Straight
-    drawTrafficLight(center.x + hs + cwOffset, center.y - lDir*2.5*laneW, phase === 2, -90); // Right/Non-Cross
-
-    // Lights for West Incoming (facing West, orientation 90)
-    drawTrafficLight(center.x - hs - cwOffset, center.y + lDir*0.5*laneW, phase === 3, 90); // Left/Cross
-    drawTrafficLight(center.x - hs - cwOffset, center.y + lDir*1.5*laneW, phase === 2, 90); // Straight
-    drawTrafficLight(center.x - hs - cwOffset, center.y + lDir*2.5*laneW, phase === 2, 90); // Right/Non-Cross
-
-    // Draw Vehicles
-    const drawVehicles = (laneName, queue) => {
-      if (!queue) return;
-      
-      let startX = center.x, startY = center.y, dx = 0, dy = 0;
-      let spacingOffset = cwWidth + 35; // Start just behind traffic light to avoid overlap
-
-      if (laneName.startsWith("N_")) {
-        if (laneName.includes("left")) startX = center.x - lDir*0.5*laneW;
-        if (laneName.includes("straight")) startX = center.x - lDir*1.5*laneW;
-        if (laneName.includes("right")) startX = center.x - lDir*2.5*laneW;
-        startY = center.y - hs; dx = 0; dy = -1;
-      } else if (laneName.startsWith("S_")) {
-        if (laneName.includes("left")) startX = center.x + lDir*0.5*laneW;
-        if (laneName.includes("straight")) startX = center.x + lDir*1.5*laneW;
-        if (laneName.includes("right")) startX = center.x + lDir*2.5*laneW;
-        startY = center.y + hs; dx = 0; dy = 1;
-      } else if (laneName.startsWith("E_")) {
-        if (laneName.includes("left")) startY = center.y - lDir*0.5*laneW;
-        if (laneName.includes("straight")) startY = center.y - lDir*1.5*laneW;
-        if (laneName.includes("right")) startY = center.y - lDir*2.5*laneW;
-        startX = center.x + hs; dx = 1; dy = 0;
-      } else if (laneName.startsWith("W_")) {
-        if (laneName.includes("left")) startY = center.y + lDir*0.5*laneW;
-        if (laneName.includes("straight")) startY = center.y + lDir*1.5*laneW;
-        if (laneName.includes("right")) startY = center.y + lDir*2.5*laneW;
-        startX = center.x - hs; dx = -1; dy = 0;
-      }
-
-      let currentOffset = spacingOffset;
-
-      queue.forEach((vehicle, idx) => {
-        let vLength = 24;
-        if (vehicle.type === 'bus') vLength = 38;
-        if (vehicle.type === 'truck') vLength = 45;
-        if (vehicle.type === 'bike') vLength = 10;
-
-        const centerPos = currentOffset + vLength / 2;
-        const x = startX + dx * centerPos;
-        const y = startY + dy * centerPos;
-
-        currentOffset += vLength + 8; // gap between vehicles
-
-        const colors = {
-            'car': '#3b82f6',
-            'truck': '#8b5cf6', // purple
-            'bus': '#f59e0b',
-            'bike': '#ec4899',
-            'ambulance': '#ef4444'
-        };
-        
-        ctx.fillStyle = colors[vehicle.type] || '#ffffff';
-        
-        ctx.save();
-        ctx.translate(x, y);
-
-        // Map movement direction to specific rotation angles
-        // default arrow of vehicle drawing assumes pointing UP initially
-        if (dx > 0) { ctx.rotate(-Math.PI/2); }       // moving East, facing West (from East approach)
-        else if (dx < 0) { ctx.rotate(Math.PI/2); }   // moving West, facing East (from West approach)
-        else if (dy > 0) { ctx.rotate(Math.PI); }     // moving South, facing North (from South approach)
-        else if (dy < 0) { ctx.rotate(0); }           // moving North, facing South (from North approach)
-        
-        ctx.beginPath();
-        if (vehicle.type === 'bike') {
-           ctx.arc(0, 0, 5, 0, Math.PI * 2);
-           ctx.fill();
-        } else {
-           let vw = 14; 
-           let vh = 24;
-           if (vehicle.type === 'bus') { vw = 18; vh = 38; }
-           if (vehicle.type === 'truck') { vw = 20; vh = 45; } // Trucks are longest and widest
-           
-           ctx.roundRect(-vw/2, -vh/2, vw, vh, 3);
-           ctx.fill();
-           
-           // Windshield
-           ctx.fillStyle = '#1e3a8a';
-           ctx.fillRect(-vw/2 + 2, vh/2 - 8, vw - 4, 4);
+        for (let i = -hs + 10; i < hs; i += 20) {
+          ctx.fillRect(-hs - cwWidth, i, cwWidth - 5, 10);
+          ctx.fillRect(hs + 5, i, cwWidth - 5, 10);
         }
 
-        // Ambulance strobe
-        if (vehicle.type === 'ambulance') {
-          if (Math.random() > 0.5) {
-            ctx.shadowColor = '#ef4444';
-            ctx.shadowBlur = 15;
-            ctx.fillStyle = '#ffffff';
+        // Draw Lane Dividers
+        ctx.strokeStyle = '#facc15'; 
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(-2, -roadExt); ctx.lineTo(-2, -hs - cwWidth);
+        ctx.moveTo(2, -roadExt); ctx.lineTo(2, -hs - cwWidth);
+        
+        ctx.moveTo(-2, hs + cwWidth); ctx.lineTo(-2, roadExt);
+        ctx.moveTo(2, hs + cwWidth); ctx.lineTo(2, roadExt);
+        
+        ctx.moveTo(-roadExt, -2); ctx.lineTo(-hs - cwWidth, -2);
+        ctx.moveTo(-roadExt, 2); ctx.lineTo(-hs - cwWidth, 2);
+        
+        ctx.moveTo(hs + cwWidth, -2); ctx.lineTo(roadExt, -2);
+        ctx.moveTo(hs + cwWidth, 2); ctx.lineTo(roadExt, 2);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#e4e4e7';
+        ctx.setLineDash([15, 15]);
+        ctx.lineWidth = 2;
+        const laneW = hs / 3;
+        
+        [-laneW, -2*laneW].forEach(x => {
+            ctx.beginPath(); ctx.moveTo(x, -roadExt); ctx.lineTo(x, -hs - cwWidth); ctx.stroke();
+        });
+        [laneW, 2*laneW].forEach(x => {
+            ctx.beginPath(); ctx.moveTo(x, hs + cwWidth); ctx.lineTo(x, roadExt); ctx.stroke();
+        });
+        [-laneW, -2*laneW].forEach(y => {
+            ctx.beginPath(); ctx.moveTo(-roadExt, y); ctx.lineTo(-hs - cwWidth, y); ctx.stroke();
+        });
+        [laneW, 2*laneW].forEach(y => {
+            ctx.beginPath(); ctx.moveTo(hs + cwWidth, y); ctx.lineTo(roadExt, y); ctx.stroke();
+        });
+        ctx.setLineDash([]);
+
+        // Stop lines
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(-hs, -hs - cwWidth - 5, hs, 5); 
+        ctx.fillRect(0, hs + cwWidth, hs, 5); 
+        ctx.fillRect(hs + cwWidth, -hs, 5, hs); 
+        ctx.fillRect(-hs - cwWidth - 5, 0, 5, hs); 
+
+        // Directional Arrows
+        const drawArrow = (x, y, dir, type) => {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(dir * Math.PI / 180);
+            
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            
+            const pathStraight = () => {
+                ctx.moveTo(-6, 20); ctx.lineTo(6, 20); ctx.lineTo(6, -5); 
+                ctx.lineTo(14, -5); ctx.lineTo(0, -25); ctx.lineTo(-14, -5); ctx.lineTo(-6, -5);
+            };
+            const pathLeft = () => {
+                ctx.moveTo(-6, 20); ctx.lineTo(6, 20); ctx.lineTo(6, 4); ctx.lineTo(-10, 4);
+                ctx.lineTo(-10, -4); ctx.lineTo(-4, -4); ctx.lineTo(-14, -18); ctx.lineTo(-24, -4); ctx.lineTo(-18, -4); ctx.lineTo(-18, 12); ctx.lineTo(-6, 12);
+            };
+            const pathRight = () => {
+                 ctx.moveTo(-6, 20); ctx.lineTo(6, 20); ctx.lineTo(6, 12); ctx.lineTo(18, 12);
+                 ctx.lineTo(18, -4); ctx.lineTo(24, -4); ctx.lineTo(14, -18); ctx.lineTo(4, -4); ctx.lineTo(10, -4); ctx.lineTo(10, 4); ctx.lineTo(-6, 4);
+            };
+
             ctx.beginPath();
-            ctx.arc(0, 0, 4, 0, Math.PI*2);
+            if (type === 'straight') pathStraight();
+            else if (type === 'left') pathLeft();
+            else if (type === 'right') pathRight();
+            else if (type === 'straight_left') {
+                pathStraight(); ctx.closePath();
+                ctx.moveTo(-6, 4); ctx.lineTo(6, 4); ctx.lineTo(6, 4); ctx.lineTo(-10, 4);
+                ctx.lineTo(-10, -4); ctx.lineTo(-4, -4); ctx.lineTo(-14, -18); ctx.lineTo(-24, -4); ctx.lineTo(-18, -4); ctx.lineTo(-18, 12); ctx.lineTo(-6, 12);
+            } else if (type === 'straight_right') {
+                pathStraight(); ctx.closePath();
+                ctx.moveTo(-6, 4); ctx.lineTo(6, 4); ctx.lineTo(6, 12); ctx.lineTo(18, 12);
+                ctx.lineTo(18, -4); ctx.lineTo(24, -4); ctx.lineTo(14, -18); ctx.lineTo(4, -4); ctx.lineTo(10, -4); ctx.lineTo(10, 4); ctx.lineTo(-6, 4);
+            }
             ctx.fill();
-          }
+            ctx.restore();
+        };
+
+        let innerArrow, middleArrow, outerArrow;
+        if (lDir === 1) { 
+            innerArrow = 'straight_left'; middleArrow = 'straight'; outerArrow = 'right';
+        } else { 
+            innerArrow = 'straight_right'; middleArrow = 'straight'; outerArrow = 'left';
         }
+
+        drawArrow(-lDir*0.5*laneW, -hs - cwWidth - 60, 180, innerArrow);
+        drawArrow(-lDir*1.5*laneW, -hs - cwWidth - 60, 180, middleArrow);
+        drawArrow(-lDir*2.5*laneW, -hs - cwWidth - 60, 180, outerArrow);
+
+        drawArrow(lDir*0.5*laneW, hs + cwWidth + 60, 0, innerArrow);
+        drawArrow(lDir*1.5*laneW, hs + cwWidth + 60, 0, middleArrow);
+        drawArrow(lDir*2.5*laneW, hs + cwWidth + 60, 0, outerArrow);
+
+        drawArrow(hs + cwWidth + 60, -lDir*0.5*laneW, -90, innerArrow);
+        drawArrow(hs + cwWidth + 60, -lDir*1.5*laneW, -90, middleArrow);
+        drawArrow(hs + cwWidth + 60, -lDir*2.5*laneW, -90, outerArrow);
+
+        drawArrow(-hs - cwWidth - 60, lDir*0.5*laneW, 90, innerArrow);
+        drawArrow(-hs - cwWidth - 60, lDir*1.5*laneW, 90, middleArrow);
+        drawArrow(-hs - cwWidth - 60, lDir*2.5*laneW, 90, outerArrow);
+
+        // Map Phase to Green Lights
+        const phase = interState.phase;
+        const isTrans = interState.is_transitioning || false;
+        
+        const drawTrafficLight = (x, y, isActivePhase, orientation) => {
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(orientation * Math.PI / 180);
+          
+          ctx.fillStyle = '#09090b';
+          ctx.fillRect(-8, -20, 16, 40);
+          ctx.strokeStyle = '#27272a';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(-8, -20, 16, 40);
+          
+          const drawBulb = (by, color, isActive) => {
+              ctx.beginPath();
+              ctx.arc(0, by, 4.5, 0, Math.PI * 2);
+              ctx.fillStyle = isActive ? color : '#1f2937';
+              if (isActive) {
+                  ctx.shadowColor = color;
+                  ctx.shadowBlur = 12;
+              }
+              ctx.fill();
+              ctx.shadowBlur = 0;
+          };
+          
+          const showGreen = isActivePhase && !isTrans;
+          const showYellow = isActivePhase && isTrans;
+          const showRed = !isActivePhase;
+
+          drawBulb(-12, '#ef4444', showRed); 
+          drawBulb(0, '#eab308', showYellow);      
+          drawBulb(12, '#10b981', showGreen);   
+          
+          ctx.restore();
+        };
+
+        const cwOffset = cwWidth + 12;
+        drawTrafficLight(-lDir*0.5*laneW, -hs - cwOffset, phase === 1, 180); 
+        drawTrafficLight(-lDir*1.5*laneW, -hs - cwOffset, phase === 0, 180); 
+        drawTrafficLight(-lDir*2.5*laneW, -hs - cwOffset, phase === 0, 180); 
+
+        drawTrafficLight(lDir*0.5*laneW, hs + cwOffset, phase === 1, 0); 
+        drawTrafficLight(lDir*1.5*laneW, hs + cwOffset, phase === 0, 0); 
+        drawTrafficLight(lDir*2.5*laneW, hs + cwOffset, phase === 0, 0); 
+
+        drawTrafficLight(hs + cwOffset, -lDir*0.5*laneW, phase === 3, -90); 
+        drawTrafficLight(hs + cwOffset, -lDir*1.5*laneW, phase === 2, -90); 
+        drawTrafficLight(hs + cwOffset, -lDir*2.5*laneW, phase === 2, -90); 
+
+        drawTrafficLight(-hs - cwOffset, lDir*0.5*laneW, phase === 3, 90); 
+        drawTrafficLight(-hs - cwOffset, lDir*1.5*laneW, phase === 2, 90); 
+        drawTrafficLight(-hs - cwOffset, lDir*2.5*laneW, phase === 2, 90); 
+
+        // Draw Vehicles
+        const drawVehicles = (laneName, queue) => {
+          if (!queue) return;
+          
+          let startX = 0, startY = 0, dx = 0, dy = 0;
+          let spacingOffset = cwWidth + 35; 
+
+          if (laneName.startsWith("N_")) {
+            if (laneName.includes("left")) startX = -lDir*0.5*laneW;
+            if (laneName.includes("straight")) startX = -lDir*1.5*laneW;
+            if (laneName.includes("right")) startX = -lDir*2.5*laneW;
+            startY = -hs; dx = 0; dy = -1;
+          } else if (laneName.startsWith("S_")) {
+            if (laneName.includes("left")) startX = lDir*0.5*laneW;
+            if (laneName.includes("straight")) startX = lDir*1.5*laneW;
+            if (laneName.includes("right")) startX = lDir*2.5*laneW;
+            startY = hs; dx = 0; dy = 1;
+          } else if (laneName.startsWith("E_")) {
+            if (laneName.includes("left")) startY = -lDir*0.5*laneW;
+            if (laneName.includes("straight")) startY = -lDir*1.5*laneW;
+            if (laneName.includes("right")) startY = -lDir*2.5*laneW;
+            startX = hs; dx = 1; dy = 0;
+          } else if (laneName.startsWith("W_")) {
+            if (laneName.includes("left")) startY = lDir*0.5*laneW;
+            if (laneName.includes("straight")) startY = lDir*1.5*laneW;
+            if (laneName.includes("right")) startY = lDir*2.5*laneW;
+            startX = -hs; dx = -1; dy = 0;
+          }
+
+          let currentOffset = spacingOffset;
+
+          queue.forEach((vehicle) => {
+            let vLength = 24;
+            if (vehicle.type === 'bus') vLength = 38;
+            if (vehicle.type === 'truck') vLength = 45;
+            if (vehicle.type === 'bike') vLength = 10;
+
+            const centerPos = currentOffset + vLength / 2;
+            const x = startX + dx * centerPos;
+            const y = startY + dy * centerPos;
+
+            currentOffset += vLength + 8; 
+
+            const colors = {
+                'car': '#3b82f6',
+                'truck': '#8b5cf6', 
+                'bus': '#f59e0b',
+                'bike': '#ec4899',
+                'ambulance': '#ef4444'
+            };
+            
+            ctx.fillStyle = colors[vehicle.type] || '#ffffff';
+            
+            ctx.save();
+            ctx.translate(x, y);
+
+            if (dx > 0) { ctx.rotate(-Math.PI/2); }       
+            else if (dx < 0) { ctx.rotate(Math.PI/2); }   
+            else if (dy > 0) { ctx.rotate(Math.PI); }     
+            else if (dy < 0) { ctx.rotate(0); }           
+            
+            ctx.beginPath();
+            if (vehicle.type === 'bike') {
+               ctx.arc(0, 0, 5, 0, Math.PI * 2);
+               ctx.fill();
+            } else {
+               let vw = 14; 
+               let vh = 24;
+               if (vehicle.type === 'bus') { vw = 18; vh = 38; }
+               if (vehicle.type === 'truck') { vw = 20; vh = 45; } 
+               
+               ctx.roundRect(-vw/2, -vh/2, vw, vh, 3);
+               ctx.fill();
+               
+               ctx.fillStyle = '#1e3a8a';
+               ctx.fillRect(-vw/2 + 2, vh/2 - 8, vw - 4, 4);
+            }
+
+            if (vehicle.type === 'ambulance') {
+              if (Math.random() > 0.5) {
+                ctx.shadowColor = '#ef4444';
+                ctx.shadowBlur = 15;
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(0, 0, 4, 0, Math.PI*2);
+                ctx.fill();
+              }
+            }
+            ctx.restore();
+          });
+        };
+
+        if (interState.lanes) {
+          Object.entries(interState.lanes).forEach(([laneName, queue]) => {
+            drawVehicles(laneName, queue);
+          });
+        }
+
         ctx.restore();
-      });
     };
 
-    if (state.lanes) {
-      Object.entries(state.lanes).forEach(([laneName, queue]) => {
-        drawVehicles(laneName, queue);
-      });
+    if (viewMode === 'city') {
+        const spacingX = width / cols;
+        const spacingY = height / rows;
+        // Increase base scale so city view fills more of the screen
+        const scale = Math.min(spacingX / 800, spacingY / 800); 
+
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const cx = (c + 0.5) * spacingX;
+                const cy = (r + 0.5) * spacingY;
+                const interState = state.grid[`${r}_${c}`];
+                if (interState) {
+                    drawIntersection(interState, cx, cy, scale);
+                }
+            }
+        }
+    } else {
+        const cx = 600;
+        const cy = 600;
+        // Increase crossroad view scale from 1.0 to 1.6 to make the single intersection appear much larger.
+        const scale = 1.6;
+        const interState = state.grid[selectedCrossroad];
+        if (interState) {
+            drawIntersection(interState, cx, cy, scale);
+        }
     }
 
-  }, [state]);
+  }, [state, viewMode, selectedCrossroad]);
 
-  if (!state) {
+  if (!state || !state.grid) {
     return (
       <div className="flex items-center justify-center h-full text-zinc-500">
         Waiting for simulation data...
@@ -363,8 +356,37 @@ export default function SimulationView({ state }) {
     );
   }
 
+  const coords = Object.keys(state.grid);
+
   return (
-    <div className="flex items-center justify-center h-full w-full relative">
+    <div className="flex flex-col items-center justify-start pt-6 h-full w-full relative">
+      <div className="z-40 mb-4 bg-zinc-900/80 backdrop-blur-md p-2 rounded-xl flex gap-3 border border-zinc-800">
+          <button 
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${viewMode === 'city' ? 'bg-blue-600 text-white shadow-lg' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
+              onClick={() => setViewMode('city')}
+          >
+              City Grid View
+          </button>
+          <button 
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${viewMode === 'crossroad' ? 'bg-blue-600 text-white shadow-lg' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
+              onClick={() => setViewMode('crossroad')}
+          >
+              Crossroad View
+          </button>
+          
+          {viewMode === 'crossroad' && (
+              <select 
+                  value={selectedCrossroad}
+                  onChange={(e) => setSelectedCrossroad(e.target.value)}
+                  className="bg-zinc-800 text-zinc-200 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+              >
+                  {coords.map(k => (
+                      <option key={k} value={k}>Intersection {k.replace('_', ',')}</option>
+                  ))}
+              </select>
+          )}
+      </div>
+
       <div className="absolute top-6 right-6 bg-zinc-950/80 backdrop-blur-md border border-zinc-800/50 p-4 rounded-xl shadow-2xl z-20 flex flex-col gap-3 min-w-[140px]">
         <h3 className="text-zinc-200 text-xs font-bold uppercase tracking-wider mb-1">Vehicle Details</h3>
         <div className="flex items-center gap-3">
@@ -389,50 +411,10 @@ export default function SimulationView({ state }) {
         </div>
       </div>
       
-      <div className="flex flex-col items-center gap-4 w-full h-full max-h-[90vh]">
-        <div className="absolute top-6 left-6 flex items-center gap-3 bg-zinc-950/90 backdrop-blur-md px-5 py-2.5 rounded-full border border-zinc-800 shadow-xl z-30" title="T: Simulation Time Step&#10;Phase: Current Traffic Light Combination&#10;0: N-S (Straight/Right)&#10;1: N-S (Left Turn)&#10;2: E-W (Straight/Right)&#10;3: E-W (Left Turn)">
+      <div className="flex flex-col items-center gap-4 w-full h-full max-h-[85vh]">
+        <div className="absolute top-6 left-6 flex items-center gap-3 bg-zinc-950/90 backdrop-blur-md px-5 py-2.5 rounded-full border border-zinc-800 shadow-xl z-30">
           <div className={`w-3 h-3 rounded-full ${state.is_running ? 'bg-emerald-500 animate-pulse shadow-[0_0_12px_rgba(16,185,129,0.8)]' : 'bg-red-500'}`} />
           <span className="text-sm font-bold tracking-widest text-emerald-400">T (Time): {state.step}</span>
-          <div className="w-px h-4 bg-zinc-700 mx-1"></div>
-          <span className="text-sm font-mono text-zinc-400 font-medium">Light Phase: <span className={state.is_transitioning ? "text-amber-400" : "text-zinc-200"}>{state.phase}</span></span>
-        </div>
-
-        <div className="absolute bottom-6 left-6 bg-zinc-950/90 backdrop-blur-md border border-zinc-800/50 p-4 rounded-xl shadow-2xl z-30 flex flex-col gap-2 min-w-[180px]">
-          <h3 className="text-zinc-200 text-xs font-bold uppercase tracking-wider mb-1">Live Metrics</h3>
-          <div className="flex justify-between items-center text-sm">
-              <span className="text-zinc-400">Total Vehicles</span>
-              <span className="font-mono font-bold text-white">{state.vehicles?.length || 0}</span>
-          </div>
-          <div className="flex justify-between items-center text-sm">
-              <span className="text-zinc-400">Cars</span>
-              <span className="font-mono font-bold text-blue-400">
-                  {state.vehicles?.filter(v => v.type === 'car').length || 0}
-              </span>
-          </div>
-          <div className="flex justify-between items-center text-sm">
-              <span className="text-zinc-400">Buses</span>
-              <span className="font-mono font-bold text-amber-500">
-                  {state.vehicles?.filter(v => v.type === 'bus').length || 0}
-              </span>
-          </div>
-          <div className="flex justify-between items-center text-sm">
-              <span className="text-zinc-400">Trucks</span>
-              <span className="font-mono font-bold text-purple-400">
-                  {state.vehicles?.filter(v => v.type === 'truck').length || 0}
-              </span>
-          </div>
-          <div className="flex justify-between items-center text-sm">
-              <span className="text-zinc-400">Bikes</span>
-              <span className="font-mono font-bold text-pink-400">
-                  {state.vehicles?.filter(v => v.type === 'bike').length || 0}
-              </span>
-          </div>
-          <div className="flex justify-between items-center text-sm mt-1 pt-1 border-t border-zinc-800">
-              <span className="text-zinc-400">Ambulances</span>
-              <span className={`font-mono font-bold ${state.vehicles?.filter(v => v.type === 'ambulance').length > 0 ? 'text-red-500 animate-pulse shadow-sm' : 'text-zinc-500'}`}>
-                  {state.vehicles?.filter(v => v.type === 'ambulance').length || 0}
-              </span>
-          </div>
         </div>
 
         <div className="bg-zinc-950/50 border border-zinc-800/50 p-3 rounded-3xl shadow-2xl relative overflow-hidden flex-1 aspect-square flex items-center justify-center w-full max-w-4xl group">
@@ -441,7 +423,7 @@ export default function SimulationView({ state }) {
             className="rounded-2xl w-full h-full object-contain mix-blend-lighten"
           />
         </div>
-        <p className="text-zinc-500 text-sm font-medium">Real-time Intersection Visualization Engine.</p>
+        <p className="text-zinc-500 text-sm font-medium">Real-time Intersection Visualization Engine. Scale your viewpoint.</p>
       </div>
     </div>
   );
