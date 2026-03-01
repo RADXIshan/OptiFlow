@@ -554,7 +554,7 @@ export default function SimulationView({ state }) {
       <div className="flex flex-col items-center gap-4 w-full h-full max-h-[85vh]">
         <div className="absolute top-6 left-6 flex items-center gap-3 bg-zinc-950/90 backdrop-blur-md px-5 py-2.5 rounded-full border border-zinc-800 shadow-xl z-30">
           <div className={`w-3 h-3 rounded-full ${state.is_running ? 'bg-emerald-500 animate-pulse shadow-[0_0_12px_rgba(16,185,129,0.8)]' : 'bg-red-500'}`} />
-          <span className="text-sm font-bold tracking-widest text-emerald-400">T (Time): {state.step}</span>
+          <span className="text-sm font-bold tracking-widest text-emerald-400">Time: {state.step}s</span>
         </div>
 
         <div className="bg-zinc-950/50 border border-zinc-800/50 p-3 rounded-3xl shadow-2xl relative overflow-hidden flex-1 aspect-square flex items-center justify-center w-full max-w-4xl group">

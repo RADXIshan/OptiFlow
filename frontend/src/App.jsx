@@ -18,7 +18,7 @@ function Navigation() {
           <Activity className="text-blue-500" />
           OptiFlow
         </h1>
-        <p className="text-zinc-500 text-sm mt-1">RL Traffic Optimizer</p>
+        <p className="text-zinc-500 text-sm mt-1">Traffic Optimizer</p>
       </div>
 
       <div className="flex-1 px-4 space-y-2">
@@ -77,8 +77,8 @@ function MainLayout() {
               <div className="hidden lg:flex items-center gap-6 text-sm border-r border-zinc-800 pr-6">
                 <div className="flex items-center gap-2 bg-zinc-900/50 px-3 py-1.5 rounded-full border border-zinc-800/80">
                   <Timer size={14} className="text-blue-400" />
-                  <span className="text-zinc-400">Step</span>
-                  <span className="text-emerald-400 font-mono font-medium">{metrics.step}</span>
+                  <span className="text-zinc-400">Time</span>
+                  <span className="text-emerald-400 font-mono font-medium">{metrics.step}s</span>
                 </div>
                 <div className="flex items-center gap-2 bg-zinc-900/50 px-3 py-1.5 rounded-full border border-zinc-800/80">
                   <Car size={14} className="text-blue-400" />
