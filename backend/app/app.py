@@ -1,5 +1,7 @@
 import os
 import asyncio
+import time
+from collections import deque
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,7 +19,7 @@ CLIENT_URL = os.getenv("CLIENT_URL", "http://localhost:5173")
 app = FastAPI(
     title="OptiFlow Backend",
     description="OptiFlow Backend API",
-    version="1.0.0",
+    version="2.0.0",
 )
 
 origins = [
@@ -37,57 +39,107 @@ app.add_middleware(
 app.include_router(websocket_router, tags=["websocket"])
 app.include_router(rest_router, prefix="/api", tags=["rest"])
 
-# Global Simulation State
+# ── Global Simulation State ──────────────────────────────────────────────────
 SIMULATION_RUNNING = False
 SIMULATION_TASK = None
-env = TrafficEnv() # the environment instance
+env = TrafficEnv()           # environment instance
 rl_model = None
 
+# Speed multiplier: divide base sleep time by this.
+# 0.25 = very slow, 1.0 = normal, 4.0 = fast
+SIMULATION_SPEED: float = 1.0
+BASE_SLEEP: float = 0.8          # seconds per step at 1×
+
+# Manual density override (None = use wave default)
+MANUAL_DENSITY: float | None = None
+
+# ── Session Stats ─────────────────────────────────────────────────────────────
+SESSION_START_TIME: float = time.time()
+TOTAL_VEHICLES_CLEARED: int = 0
+TOTAL_STEPS: int = 0
+TOTAL_WAIT_ACCUMULATED: float = 0.0  # sum of all vehicle wait_times cleared
+
+# ── Live Alerts ───────────────────────────────────────────────────────────────
+# Each alert: {"type": str, "message": str, "ts": float}
+ALERT_QUEUE: deque = deque(maxlen=50)
+
+def _push_alert(alert_type: str, message: str):
+    ALERT_QUEUE.appendleft({"type": alert_type, "message": message, "ts": time.time()})
+
+
+# ── Simulation Loop ───────────────────────────────────────────────────────────
 async def run_simulation_loop():
     global SIMULATION_RUNNING, env, rl_model
-    
-    # Initialize the model on first run
+    global TOTAL_VEHICLES_CLEARED, TOTAL_STEPS, TOTAL_WAIT_ACCUMULATED
+
     if rl_model is None:
         try:
             rl_model = get_model()
         except Exception as e:
             print(f"Failed to load RL model: {e}")
             return
-            
+
     obs, info = env.reset()
-    
+
     while True:
         try:
             if SIMULATION_RUNNING:
-                # RL model takes an action
                 action, _states = rl_model.predict(obs, deterministic=True)
-                
-                # Step the environment
                 obs, reward, terminated, truncated, info = env.step(action)
-                
-                # Broadcast state
+
+                # ── collect cleared stats ───────────────────────────────────
+                cleared = env.last_cleared  # list of vehicle dicts
+                TOTAL_VEHICLES_CLEARED += len(cleared)
+                TOTAL_STEPS += 1
+                for v in cleared:
+                    TOTAL_WAIT_ACCUMULATED += v.get("wait_time", 0) * 0.8
+
+                # ── detect alerts ───────────────────────────────────────────
+                for r in range(env.rows):
+                    for c in range(env.cols):
+                        inter = env.grid[(r, c)]
+                        node_total = sum(len(q) for q in inter.lanes.values())
+                        # Severe congestion
+                        if node_total > 30:
+                            _push_alert(
+                                "congestion",
+                                f"Severe congestion at node ({r},{c}) — {node_total} vehicles queued"
+                            )
+                        # Ambulance detected
+                        for lane, queue in inter.lanes.items():
+                            if any(v["type"] == "ambulance" for v in queue):
+                                _push_alert(
+                                    "ambulance",
+                                    f"🚨 Emergency vehicle detected at node ({r},{c}) in lane {lane}"
+                                )
+                                break
+
+                # ── build and broadcast state ───────────────────────────────
                 all_vehicles = []
                 for r in range(env.rows):
                     for c in range(env.cols):
                         for q in env.grid[(r, c)].lanes.values():
                             all_vehicles.extend(q)
-                
+
                 state_data = {
                     "step": int(info["step"]),
                     "grid": info["grid"],
                     "reward": float(reward),
                     "vehicles": all_vehicles,
                     "drive_side": env.drive_side,
-                    "is_running": True
+                    "is_running": True,
+                    "speed": SIMULATION_SPEED,
+                    "density": MANUAL_DENSITY,
                 }
                 await manager.broadcast(state_data)
-                
+
                 if terminated or truncated:
                     obs, info = env.reset()
-                    
-                # Tick every 0.8 seconds to make simulation more realistic and followable
-                await asyncio.sleep(0.8)
+
+                sleep_time = BASE_SLEEP / max(0.1, SIMULATION_SPEED)
+                await asyncio.sleep(sleep_time)
             else:
+                # Paused — broadcast current state
                 grid_state = {}
                 all_vehicles = []
                 for r in range(env.rows):
@@ -107,7 +159,9 @@ async def run_simulation_loop():
                     "reward": 0.0,
                     "vehicles": all_vehicles,
                     "drive_side": env.drive_side,
-                    "is_running": False
+                    "is_running": False,
+                    "speed": SIMULATION_SPEED,
+                    "density": MANUAL_DENSITY,
                 }
                 await manager.broadcast(state_data)
                 await asyncio.sleep(1.0)
@@ -116,11 +170,14 @@ async def run_simulation_loop():
             traceback.print_exc()
             await asyncio.sleep(2.0)
 
+
 @app.on_event("startup")
 async def startup_event():
-    global SIMULATION_RUNNING, SIMULATION_TASK
+    global SIMULATION_RUNNING, SIMULATION_TASK, SESSION_START_TIME
+    SESSION_START_TIME = time.time()
     SIMULATION_RUNNING = True
     SIMULATION_TASK = asyncio.create_task(run_simulation_loop())
+
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -129,6 +186,7 @@ async def shutdown_event():
     if SIMULATION_TASK:
         SIMULATION_TASK.cancel()
 
+
 @app.get("/")
 def read_root():
-    return JSONResponse({"message": "Server is Live"}, status_code=200)
+    return JSONResponse({"message": "OptiFlow v2 — Server is Live"}, status_code=200)

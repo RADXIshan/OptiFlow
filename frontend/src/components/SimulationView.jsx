@@ -1,15 +1,20 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 
 export default function SimulationView({ state }) {
   const canvasRef = useRef(null);
   const [viewMode, setViewMode] = useState('city'); // 'city' or 'crossroad'
   const [selectedCrossroad, setSelectedCrossroad] = useState('0_0');
 
+  // Map of intersection grid position to canvas pixel rect (for click-to-zoom)
+  const intersectionRectsRef = useRef([]);
+
   useEffect(() => {
     if (!state || !state.grid || !canvasRef.current) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
+    const rects = [];
+    intersectionRectsRef.current = rects;
     
     // Canvas dimensions
     const width = canvas.width = 1200;
@@ -29,7 +34,7 @@ export default function SimulationView({ state }) {
     const rows = Math.max(...coords.map(c => c.r)) + 1;
     const cols = Math.max(...coords.map(c => c.c)) + 1;
 
-    const drawIntersection = (interState, cx, cy, scale, extX = 800, extY = 800) => {
+    const drawIntersection = (interState, cx, cy, scale, extX = 800, extY = 800, gridKey = null) => {
         ctx.save();
         ctx.translate(cx, cy);
         ctx.scale(scale, scale);
@@ -43,7 +48,8 @@ export default function SimulationView({ state }) {
         ctx.fillRect(-extX, -hs, extX * 2, roadWidth);
         
         // Intersection Center
-        ctx.fillStyle = '#27272a';
+        const centerColor = '#27272a';
+        ctx.fillStyle = centerColor;
         ctx.fillRect(-hs, -hs, roadWidth, roadWidth);
 
         // Crosswalks
@@ -373,10 +379,7 @@ export default function SimulationView({ state }) {
     if (viewMode === 'city') {
         const spacingX = width / cols;
         const spacingY = height / rows;
-        // Increase base scale so city view fills more of the screen
         const scale = Math.min(spacingX / 800, spacingY / 800); 
-        
-        // Calculate exact road extensions so intersections meet seamlessly in the middle
         const extX = (spacingX / 2) / scale;
         const extY = (spacingY / 2) / scale;
 
@@ -386,7 +389,9 @@ export default function SimulationView({ state }) {
                 const cy = (r + 0.5) * spacingY;
                 const interState = state.grid[`${r}_${c}`];
                 if (interState) {
-                    drawIntersection(interState, cx, cy, scale, extX, extY);
+                    // Store rect for click detection
+                    rects.push({ key: `${r}_${c}`, cx, cy, hw: spacingX / 2, hh: spacingY / 2 });
+                    drawIntersection(interState, cx, cy, scale, extX, extY, `${r}_${c}`);
                 }
             }
         }
@@ -440,6 +445,25 @@ export default function SimulationView({ state }) {
 
   }, [state, viewMode, selectedCrossroad]);
 
+  // ── Click-to-zoom handler (must be outside useEffect) ────────────────────
+  const handleCanvasClick = useCallback((e) => {
+    if (viewMode !== 'city') return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width  / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const clickX = (e.clientX - rect.left) * scaleX;
+    const clickY = (e.clientY - rect.top)  * scaleY;
+    for (const { key, cx, cy, hw, hh } of intersectionRectsRef.current) {
+      if (Math.abs(clickX - cx) < hw && Math.abs(clickY - cy) < hh) {
+        setSelectedCrossroad(key);
+        setViewMode('crossroad');
+        break;
+      }
+    }
+  }, [viewMode]);
+
   if (!state || !state.grid) {
     return (
       <div className="flex items-center justify-center h-full text-zinc-500">
@@ -452,7 +476,7 @@ export default function SimulationView({ state }) {
 
   return (
     <div className="flex flex-col items-center justify-start pt-6 h-full w-full relative">
-      <div className="z-40 mb-4 bg-zinc-900/80 backdrop-blur-md p-2 rounded-xl flex gap-3 border border-zinc-800">
+      <div className="z-40 mb-4 bg-zinc-900/80 backdrop-blur-md p-2 rounded-xl flex flex-wrap gap-3 border border-zinc-800">
           <button 
               className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${viewMode === 'city' ? 'bg-blue-600 text-white shadow-lg' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
               onClick={() => setViewMode('city')}
@@ -477,6 +501,7 @@ export default function SimulationView({ state }) {
                   ))}
               </select>
           )}
+
       </div>
 
       <div className="absolute top-6 right-6 bg-zinc-950/80 backdrop-blur-md border border-zinc-800/50 p-4 rounded-xl shadow-2xl z-20 flex flex-col gap-3 min-w-[200px]">
@@ -559,11 +584,15 @@ export default function SimulationView({ state }) {
 
         <div className="bg-zinc-950/50 border border-zinc-800/50 p-3 rounded-3xl shadow-2xl relative overflow-hidden flex-1 aspect-square flex items-center justify-center w-full max-w-4xl group">
           <canvas 
-            ref={canvasRef} 
-            className="rounded-2xl w-full h-full object-contain mix-blend-lighten"
+            ref={canvasRef}
+            onClick={handleCanvasClick}
+            className={`rounded-2xl w-full h-full object-contain mix-blend-lighten ${viewMode === 'city' ? 'cursor-pointer' : 'cursor-default'}`}
           />
         </div>
-        <p className="text-zinc-500 text-sm font-medium">Real-time Intersection Visualization Engine. Scale your viewpoint.</p>
+        <p className="text-zinc-500 text-sm font-medium">
+          {viewMode === 'city' ? 'Click any intersection to zoom in — ' : ''}
+          Real-time Intersection Visualization Engine.
+        </p>
       </div>
     </div>
   );

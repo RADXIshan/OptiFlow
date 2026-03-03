@@ -43,6 +43,8 @@ class TrafficEnv(gym.Env):
                 
         self.step_count = 0
         self.render_mode = render_mode
+        self.last_cleared = []   # vehicles cleared in the most recent step
+        self.manual_density: float | None = None  # None = use wave density
 
         self.vehicle_types = ["car", "truck", "bus", "bike", "ambulance"]
         self.vehicle_weights = [0.70, 0.10, 0.05, 0.14, 0.01]
@@ -61,6 +63,7 @@ class TrafficEnv(gym.Env):
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
         self.step_count = 0
+        self.last_cleared = []
         
         for r in range(self.rows):
             for c in range(self.cols):
@@ -78,6 +81,7 @@ class TrafficEnv(gym.Env):
 
     def step(self, action):
         self.step_count += 1
+        self.last_cleared = []
         
         all_cleared = []
         transits = []
@@ -122,6 +126,7 @@ class TrafficEnv(gym.Env):
                 if not inter.is_transitioning:
                     cleared, moves = self._process_intersection_traffic(inter)
                     all_cleared.extend(cleared)
+                    self.last_cleared.extend(cleared)
                     transits.extend(moves)
 
         for vehicle, dest_r, dest_c, arrival_dir in transits:
@@ -132,7 +137,8 @@ class TrafficEnv(gym.Env):
                 self.grid[(dest_r, dest_c)].lanes[lane_key].append(vehicle)
 
         wave_effect = np.sin(self.step_count / 50.0) * 0.1
-        current_density = max(0.05, 0.15 + wave_effect)
+        wave_density = max(0.05, 0.15 + wave_effect)
+        current_density = self.manual_density if self.manual_density is not None else wave_density
         self._spawn_edge_vehicles(current_density)
 
         observation = self._get_obs()
