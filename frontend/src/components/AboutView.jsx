@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, Cpu, Zap, GitBranch, BarChart2, Shield, ExternalLink } from 'lucide-react';
+import { Activity, Cpu, GitBranch, BarChart2, Shield } from 'lucide-react';
 
 function Section({ icon, title, children }) {
   return (
@@ -44,13 +44,7 @@ export default function AboutView() {
     { name: 'Efficiency Score',  desc: 'How much CO₂ the RL system saved vs. a naive fixed-time baseline, shown as %.' },
   ];
 
-  const shortcuts = [
-    ['Space', 'Pause / Resume simulation'],
-    ['R', 'Reset environment (when halted)'],
-    ['A', 'Inject an emergency vehicle'],
-    ['+', 'Increase simulation speed'],
-    ['-', 'Decrease simulation speed'],
-  ];
+
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-12">
@@ -62,7 +56,7 @@ export default function AboutView() {
           </div>
           <div>
             <h1 className="text-3xl font-bold text-white">OptiFlow</h1>
-            <p className="text-blue-300 text-sm mt-0.5">AI-Powered Traffic Signal Optimizer — v2.0</p>
+            <p className="text-blue-300 text-sm mt-0.5">AI-Powered Traffic Signal Optimizer</p>
           </div>
         </div>
         <p className="text-zinc-300 leading-relaxed">
@@ -144,30 +138,9 @@ export default function AboutView() {
           When any ambulance vehicle enters a queue, the simulation automatically overrides the RL
           agent's action to grant a green light on that lane. The Dashboard's
           <span className="text-red-400 font-medium"> Critical Response</span> card shows active ambulances.
-          You can inject one via the <span className="text-amber-400 font-medium">Controls → Event Injection</span> panel
-          or by pressing <kbd className="bg-zinc-800 px-1.5 rounded text-zinc-300">A</kbd>.
+          You can inject one via the <span className="text-amber-400 font-medium">Controls → Event Injection</span> panel.
         </p>
       </Section>
-
-      {/* Keyboard shortcuts */}
-      <Section icon={<Zap size={20} className="text-amber-400" />} title="Keyboard Shortcuts">
-        <div className="grid grid-cols-2 gap-2">
-          {shortcuts.map(([key, desc]) => (
-            <div key={key} className="flex items-center gap-3">
-              <kbd className="bg-zinc-800 border border-zinc-600 text-zinc-200 text-xs font-mono px-2 py-1 rounded min-w-10 text-center">
-                {key}
-              </kbd>
-              <span className="text-zinc-400 text-sm">{desc}</span>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* Stack */}
-      <div className="text-center text-zinc-600 text-xs space-y-1 pt-4">
-        <p>Built with FastAPI · Stable Baselines 3 · Gymnasium · React · Recharts · Tailwind CSS</p>
-        <p>OptiFlow v2.0 — Real-time multi-agent RL traffic optimization</p>
-      </div>
     </div>
   );
 }
