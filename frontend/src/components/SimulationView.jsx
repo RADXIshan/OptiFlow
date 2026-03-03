@@ -475,8 +475,8 @@ export default function SimulationView({ state }) {
   const coords = Object.keys(state.grid);
 
   return (
-    <div className="flex flex-col items-center justify-start pt-6 h-full w-full relative">
-      <div className="z-40 mb-4 bg-zinc-900/80 backdrop-blur-md p-2 rounded-xl flex flex-wrap gap-3 border border-zinc-800">
+    <div className="flex flex-col items-center justify-start pt-6 min-h-full w-full relative pb-10">
+      <div className="order-1 lg:order-0 z-10 mb-4 bg-zinc-900/80 backdrop-blur-md p-2 rounded-xl flex flex-wrap justify-center gap-3 border border-zinc-800 w-full max-w-fit mx-auto">
           <button 
               className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${viewMode === 'city' ? 'bg-blue-600 text-white shadow-lg' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
               onClick={() => setViewMode('city')}
@@ -504,7 +504,7 @@ export default function SimulationView({ state }) {
 
       </div>
 
-      <div className="absolute top-6 right-6 bg-zinc-950/80 backdrop-blur-md border border-zinc-800/50 p-4 rounded-xl shadow-2xl z-20 flex flex-col gap-3 min-w-[200px]">
+      <div className="order-3 lg:order-0 mt-6 lg:mt-0 lg:absolute lg:top-6 lg:right-6 bg-zinc-950/80 backdrop-blur-md border border-zinc-800/50 p-4 rounded-xl shadow-2xl z-20 flex flex-col gap-3 min-w-[200px] w-full max-w-sm lg:w-auto">
         {(() => {
           let vehicles = [];
           if (viewMode === 'city') {
@@ -576,8 +576,8 @@ export default function SimulationView({ state }) {
         })()}
       </div>
       
-      <div className="flex flex-col items-center gap-4 w-full h-full max-h-[85vh]">
-        <div className="absolute top-6 left-6 flex items-center gap-3 bg-zinc-950/90 backdrop-blur-md px-5 py-2.5 rounded-full border border-zinc-800 shadow-xl z-30">
+      <div className="order-2 lg:order-0 flex flex-col items-center gap-4 w-full h-full lg:max-h-[85vh]">
+        <div className="lg:absolute lg:top-6 lg:left-6 flex items-center gap-3 bg-zinc-950/90 backdrop-blur-md px-5 py-2.5 rounded-full border border-zinc-800 shadow-xl z-20 w-max mb-1 lg:mb-0">
           <div className={`w-3 h-3 rounded-full ${state.is_running ? 'bg-emerald-500 animate-pulse shadow-[0_0_12px_rgba(16,185,129,0.8)]' : 'bg-red-500'}`} />
           <span className="text-sm font-bold tracking-widest text-emerald-400">Time: {state.step}s</span>
         </div>

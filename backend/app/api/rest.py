@@ -63,7 +63,8 @@ async def reset_simulation():
         main_app.TOTAL_STEPS = 0
         main_app.TOTAL_WAIT_ACCUMULATED = 0.0
         main_app.SESSION_START_TIME = time.time()
-        main_app.ALERT_QUEUE.clear()
+        main_app.EVENT_ALERTS.clear()
+        main_app.STATE_ALERTS.clear()
         main_app._push_alert("system", "🔄 Environment reset — session stats cleared")
         return {"status": "reset"}
     return {"status": "error", "message": "Engine must be halted to reset"}
@@ -134,7 +135,9 @@ async def apply_scenario(config: ScenarioConfig):
 
 @router.get("/alerts")
 async def get_alerts():
-    return {"alerts": list(main_app.ALERT_QUEUE)}
+    alerts = list(main_app.STATE_ALERTS.values()) + list(main_app.EVENT_ALERTS)
+    alerts.sort(key=lambda x: x["ts"], reverse=True)
+    return {"alerts": alerts[:50]}
 
 @router.get("/stats/session")
 async def get_session_stats():

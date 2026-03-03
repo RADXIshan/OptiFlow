@@ -45,11 +45,11 @@ function Navigation({ isOpen, onClose, alertCount }) {
     <>
       {/* Mobile overlay */}
       {isOpen && (
-        <div className="fixed inset-0 bg-black/60 z-30 lg:hidden" onClick={onClose} />
+        <div className="fixed inset-0 bg-black/60 z-40 lg:hidden" onClick={onClose} />
       )}
 
       <nav className={`
-        fixed lg:static top-0 left-0 z-40 h-screen w-64 bg-zinc-950 border-r border-zinc-900
+        fixed lg:static top-0 left-0 z-50 h-screen w-64 bg-zinc-950 border-r border-zinc-900
         flex flex-col transition-transform duration-300
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>

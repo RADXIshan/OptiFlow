@@ -60,11 +60,13 @@ TOTAL_STEPS: int = 0
 TOTAL_WAIT_ACCUMULATED: float = 0.0  # sum of all vehicle wait_times cleared
 
 # ── Live Alerts ───────────────────────────────────────────────────────────────
-# Each alert: {"type": str, "message": str, "ts": float}
-ALERT_QUEUE: deque = deque(maxlen=50)
+# Each event alert: {"type": str, "message": str, "ts": float}
+EVENT_ALERTS: deque = deque(maxlen=50)
+# Each state alert: {"type": str, "message": str, "ts": float}
+STATE_ALERTS: dict = {}
 
 def _push_alert(alert_type: str, message: str):
-    ALERT_QUEUE.appendleft({"type": alert_type, "message": message, "ts": time.time()})
+    EVENT_ALERTS.appendleft({"type": alert_type, "message": message, "ts": time.time()})
 
 
 # ── Simulation Loop ───────────────────────────────────────────────────────────
@@ -95,24 +97,41 @@ async def run_simulation_loop():
                     TOTAL_WAIT_ACCUMULATED += v.get("wait_time", 0) * 0.8
 
                 # ── detect alerts ───────────────────────────────────────────
+                current_state_keys = set()
+                
                 for r in range(env.rows):
                     for c in range(env.cols):
                         inter = env.grid[(r, c)]
                         node_total = sum(len(q) for q in inter.lanes.values())
+                        
                         # Severe congestion
                         if node_total > 30:
-                            _push_alert(
-                                "congestion",
-                                f"Severe congestion at node ({r},{c}) — {node_total} vehicles queued"
-                            )
+                            key = f"congestion_{r}_{c}"
+                            current_state_keys.add(key)
+                            if key not in STATE_ALERTS:
+                                STATE_ALERTS[key] = {"type": "congestion", "message": f"Severe congestion at node ({r},{c}) — {node_total} vehicles queued", "ts": time.time()}
+                            else:
+                                STATE_ALERTS[key]["message"] = f"Severe congestion at node ({r},{c}) — {node_total} vehicles queued"
+
                         # Ambulance detected
+                        amb_lane = None
                         for lane, queue in inter.lanes.items():
                             if any(v["type"] == "ambulance" for v in queue):
-                                _push_alert(
-                                    "ambulance",
-                                    f"🚨 Emergency vehicle detected at node ({r},{c}) in lane {lane}"
-                                )
+                                amb_lane = lane
                                 break
+
+                        if amb_lane is not None:
+                            key = f"ambulance_{r}_{c}"
+                            current_state_keys.add(key)
+                            if key not in STATE_ALERTS:
+                                STATE_ALERTS[key] = {"type": "ambulance", "message": f"🚨 Emergency vehicle detected at node ({r},{c}) in lane {amb_lane}", "ts": time.time()}
+                            else:
+                                STATE_ALERTS[key]["message"] = f"🚨 Emergency vehicle detected at node ({r},{c}) in lane {amb_lane}"
+
+                # Remove resolved state alerts
+                keys_to_remove = [k for k in STATE_ALERTS.keys() if k not in current_state_keys]
+                for k in keys_to_remove:
+                    del STATE_ALERTS[k]
 
                 # ── build and broadcast state ───────────────────────────────
                 all_vehicles = []
