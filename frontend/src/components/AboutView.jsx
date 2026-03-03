@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, Cpu, GitBranch, BarChart2, Shield } from 'lucide-react';
+import { Cpu, GitBranch, BarChart2, Shield } from 'lucide-react';
 
 function Section({ icon, title, children }) {
   return (
@@ -49,14 +49,14 @@ export default function AboutView() {
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-12">
       {/* Hero */}
-      <div className="bg-linear-to-br from-blue-900/40 via-zinc-900/60 to-black rounded-2xl border border-blue-800/30 p-8">
+      <div className="bg-linear-to-br from-zinc-900/80 to-black rounded-2xl border border-zinc-800/50 p-8">
         <div className="flex items-center gap-4 mb-4">
-          <div className="p-3 bg-blue-500/10 rounded-2xl">
-            <Activity className="text-blue-400" size={32} />
+          <div className="p-3 bg-zinc-800 rounded-2xl">
+            <img src="/logo.png" alt="OptiFlow Logo" className="w-8 h-8 object-contain" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-white">OptiFlow</h1>
-            <p className="text-blue-300 text-sm mt-0.5">AI-Powered Traffic Signal Optimizer</p>
+            <h1 className="text-3xl font-bold bg-linear-to-r from-red-400 via-yellow-300 to-green-500 bg-clip-text text-transparent w-fit">OptiFlow</h1>
+            <p className="text-zinc-400 text-sm mt-0.5">AI-Powered Traffic Signal Optimizer</p>
           </div>
         </div>
         <p className="text-zinc-300 leading-relaxed">

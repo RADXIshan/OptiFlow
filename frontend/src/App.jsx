@@ -56,7 +56,7 @@ function Navigation({ isOpen, onClose, alertCount }) {
         <div className="p-6 flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <img src="/logo.png" alt="OptiFlow" className="h-10 w-auto" />
-            <h1 className="text-3xl font-bold bg-linear-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">
+            <h1 className="text-3xl font-bold bg-linear-to-r from-red-400 via-yellow-300 to-green-500 bg-clip-text text-transparent">
               OptiFlow
             </h1>
           </div>
