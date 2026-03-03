@@ -177,15 +177,6 @@ function MainLayout() {
               </button>
             )}
 
-            {/* Dark/Light toggle */}
-            <button
-              onClick={() => setDarkMode(d => !d)}
-              className="p-2 rounded-lg bg-zinc-800/50 hover:bg-zinc-800 text-zinc-400 hover:text-white transition-all border border-zinc-700/50"
-              title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-            >
-              {darkMode ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-
             {/* Connection status */}
             <div className="flex items-center gap-2">
               <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${isConnected ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-red-500 animate-pulse'}`} />
