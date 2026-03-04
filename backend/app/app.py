@@ -128,7 +128,6 @@ async def run_simulation_loop():
                             else:
                                 STATE_ALERTS[key]["message"] = f"🚨 Emergency vehicle detected at node ({r},{c}) in lane {amb_lane}"
 
-                # Remove resolved state alerts
                 keys_to_remove = [k for k in STATE_ALERTS.keys() if k not in current_state_keys]
                 for k in keys_to_remove:
                     del STATE_ALERTS[k]
