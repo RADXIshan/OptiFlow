@@ -3,7 +3,7 @@ name = "backend"
 version = "0.1.0"
 description = "OptiFlow Backend API"
 readme = "README.md"
-requires-python = ">=3.11.9"
+requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.129.0",
     "gymnasium>=1.2.3",
