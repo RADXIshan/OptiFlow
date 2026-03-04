@@ -435,7 +435,6 @@ export default function SimulationView({ state }) {
     } else {
         const cx = 600;
         const cy = 600;
-        // Increase crossroad view scale from 1.0 to 1.6 to make the single intersection appear much larger.
         const scale = 1.6;
         const interState = state.grid[selectedCrossroad];
         if (interState) {
