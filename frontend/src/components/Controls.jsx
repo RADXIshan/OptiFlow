@@ -134,6 +134,16 @@ export default function Controls({ state }) {
       toast.warning('🚨 Emergency Vehicle Injected');
     } catch { toast.error('Failed to spawn vehicle'); }
   };
+  const handleSpawnAnomaly = async () => {
+    try {
+      await fetch(`${API_BASE}/api/simulation/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ traffic_density: 0.1, spawn_anomaly: true }),
+      });
+      toast.error('⚠️ Rogue Anomaly Injected (skips lights)!');
+    } catch { toast.error('Failed to spawn anomaly vehicle'); }
+  };
   const handleDriveSide = async (side) => {
     setIsUpdating(true);
     try {
@@ -307,13 +317,22 @@ export default function Controls({ state }) {
         subtitle="Force events to test the RL model's priority handling outside normal distribution."
         icon={<AlertTriangle size={18} className="text-amber-400" />}
       >
-        <button
-          onClick={handleSpawnAmbulance}
-          className="w-full flex items-center justify-center gap-3 py-4 bg-amber-500 text-black font-semibold rounded-xl hover:bg-amber-400 transition-colors shadow-[0_0_20px_rgba(245,158,11,0.25)]"
-        >
-          <Car size={20} />
-          Force Spawn Emergency Vehicle
-        </button>
+        <div className="flex flex-col sm:flex-row gap-4">
+          <button
+            onClick={handleSpawnAmbulance}
+            className="flex-1 flex items-center justify-center gap-3 py-4 bg-amber-500 text-black font-semibold rounded-xl hover:bg-amber-400 transition-colors shadow-[0_0_20px_rgba(245,158,11,0.25)]"
+          >
+            <Car size={20} />
+            Force Spawn Emergency
+          </button>
+          <button
+            onClick={handleSpawnAnomaly}
+            className="flex-1 flex items-center justify-center gap-3 py-4 bg-purple-600 text-white font-semibold rounded-xl hover:bg-purple-500 transition-colors shadow-[0_0_20px_rgba(147,51,234,0.4)]"
+          >
+            <Flame size={20} />
+            Force Spawn Anomaly
+          </button>
+        </div>
       </SectionCard>
 
       {/* Drive Side */}

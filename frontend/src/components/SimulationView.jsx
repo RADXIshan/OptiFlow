@@ -292,7 +292,7 @@ export default function SimulationView({ state }) {
                 'ambulance': '#ef4444'
             };
             
-            ctx.fillStyle = colors[vehicle.type] || '#ffffff';
+            ctx.fillStyle = vehicle.is_anomaly ? '#22d3ee' : colors[vehicle.type] || '#ffffff';
             
             ctx.save();
             ctx.translate(x, y);
@@ -302,6 +302,11 @@ export default function SimulationView({ state }) {
             else if (dy > 0) { ctx.rotate(Math.PI); }     
             else if (dy < 0) { ctx.rotate(0); }           
             
+            if (vehicle.is_anomaly) {
+               ctx.shadowColor = '#22d3ee';
+               ctx.shadowBlur = 20;
+            }
+
             ctx.beginPath();
             if (vehicle.type === 'bike') {
                ctx.arc(0, 0, 5, 0, Math.PI * 2);
@@ -315,7 +320,7 @@ export default function SimulationView({ state }) {
                ctx.roundRect(-vw/2, -vh/2, vw, vh, 3);
                ctx.fill();
                
-               ctx.fillStyle = '#1e3a8a';
+               ctx.fillStyle = vehicle.is_anomaly ? '#ecfeff' : '#1e3a8a';
                ctx.fillRect(-vw/2 + 2, vh/2 - 8, vw - 4, 4);
             }
 
@@ -328,6 +333,13 @@ export default function SimulationView({ state }) {
                 ctx.arc(0, 0, 4, 0, Math.PI*2);
                 ctx.fill();
               }
+            } else if (vehicle.is_anomaly && Math.random() > 0.4) {
+                ctx.shadowColor = '#06b6d4';
+                ctx.shadowBlur = 25;
+                ctx.fillStyle = '#cffafe';
+                ctx.beginPath();
+                ctx.arc(0, 0, 3, 0, Math.PI*2);
+                ctx.fill();
             }
             ctx.restore();
           });
@@ -521,10 +533,12 @@ export default function SimulationView({ state }) {
              }
           }
 
-          const counts = { total: 0, car: 0, truck: 0, bus: 0, bike: 0, ambulance: 0 };
+          const counts = { total: 0, car: 0, truck: 0, bus: 0, bike: 0, ambulance: 0, anomaly: 0 };
           vehicles.forEach(v => {
               counts.total++;
-              if (counts[v.type] !== undefined) {
+              if (v.is_anomaly) {
+                  counts.anomaly++;
+              } else if (counts[v.type] !== undefined) {
                   counts[v.type]++;
               }
           });
@@ -570,6 +584,15 @@ export default function SimulationView({ state }) {
                 </div>
                 <span className="text-sm font-mono text-zinc-400">{counts.ambulance}</span>
               </div>
+              {counts.anomaly > 0 && (
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-4 h-3 bg-cyan-400 rounded-sm shadow-[0_0_12px_rgba(34,211,238,0.8)]"></div>
+                    <span className="text-sm font-medium text-cyan-300">Anomaly</span>
+                  </div>
+                  <span className="text-sm font-mono text-cyan-400 font-bold">{counts.anomaly}</span>
+                </div>
+              )}
             </>
           );
         })()}

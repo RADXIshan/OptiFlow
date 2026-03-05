@@ -134,7 +134,11 @@ class TrafficEnv(gym.Env):
                 next_turn = random.choices(self.turn_choices, weights=self.turn_weights)[0]
                 lane_key = f"{arrival_dir}_{next_turn}"
                 vehicle["wait_time"] = 0
-                self.grid[(dest_r, dest_c)].lanes[lane_key].append(vehicle)
+                if vehicle.get("is_anomaly"):
+                    # Insert at the front of the next queue to "skip the line" visually at each intersection
+                    self.grid[(dest_r, dest_c)].lanes[lane_key].insert(0, vehicle)
+                else:
+                    self.grid[(dest_r, dest_c)].lanes[lane_key].append(vehicle)
 
         wave_effect = np.sin(self.step_count / 50.0) * 0.1
         wave_density = max(0.05, 0.15 + wave_effect)
@@ -163,6 +167,37 @@ class TrafficEnv(gym.Env):
         elif inter.current_phase == 3:
             active_lanes = ["E_left", "W_left"]
 
+        # 1. Process anomalous vehicles ignoring red lights FIRST, 
+        #    so they "skip the line" and go regardless of phase
+        for lane in inter.lanes.keys():
+            if inter.lanes[lane] and inter.lanes[lane][0].get("is_anomaly"):
+                if inter.lane_clearance_timers[lane] <= 0:
+                    vehicle = inter.lanes[lane].pop(0)
+                    cleared.append(vehicle)
+                    # Use a slightly longer clearance timer than 0.5 to make sure the user sees them running the red light
+                    inter.lane_clearance_timers[lane] = self.vehicle_clearance_cost.get(vehicle["type"], 1.0) * 0.8
+                    
+                    r, c = inter.r, inter.c
+                    if lane.startswith("N_"): 
+                        if "straight" in lane: transits.append((vehicle, r+1, c, "N"))
+                        elif "left" in lane: transits.append((vehicle, r, c+1, "W"))
+                        elif "right" in lane: transits.append((vehicle, r, c-1, "E"))
+                    elif lane.startswith("S_"): 
+                        if "straight" in lane: transits.append((vehicle, r-1, c, "S"))
+                        elif "left" in lane: transits.append((vehicle, r, c-1, "E"))
+                        elif "right" in lane: transits.append((vehicle, r, c+1, "W"))
+                    elif lane.startswith("E_"): 
+                        if "straight" in lane: transits.append((vehicle, r, c-1, "E"))
+                        elif "left" in lane: transits.append((vehicle, r+1, c, "N"))
+                        elif "right" in lane: transits.append((vehicle, r-1, c, "S"))
+                    elif lane.startswith("W_"): 
+                        if "straight" in lane: transits.append((vehicle, r, c+1, "W"))
+                        elif "left" in lane: transits.append((vehicle, r-1, c, "S"))
+                        elif "right" in lane: transits.append((vehicle, r+1, c, "N"))
+                else:
+                    inter.lane_clearance_timers[lane] -= 1.0
+
+        # 2. Process normal traffic in active phase
         for lane in active_lanes:
             if inter.lanes[lane]:
                 if inter.lane_clearance_timers[lane] <= 0:
@@ -191,7 +226,7 @@ class TrafficEnv(gym.Env):
                     inter.lane_clearance_timers[lane] -= 1.0
                     
         for lane in inter.lanes.keys():
-            if lane not in active_lanes:
+            if lane not in active_lanes and not (inter.lanes[lane] and inter.lanes[lane][0].get("is_anomaly")):
                 inter.lane_clearance_timers[lane] = 0.0
 
         return cleared, transits

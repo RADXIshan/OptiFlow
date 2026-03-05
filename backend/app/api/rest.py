@@ -13,6 +13,7 @@ router = APIRouter()
 class SimulationConfig(BaseModel):
     traffic_density: float = 0.15
     spawn_ambulance: bool = False
+    spawn_anomaly: bool = False
     drive_side: Optional[str] = None
 
 class SpeedConfig(BaseModel):
@@ -39,6 +40,34 @@ async def update_simulation_config(config: SimulationConfig):
         lane = random.choice(list(inter.lanes.keys()))
         inter.lanes[lane].append({"type": "ambulance", "wait_time": 0})
         main_app._push_alert("ambulance", f"🚨 Emergency vehicle manually injected at node ({r},{c})")
+
+    if config.spawn_anomaly:
+        for _ in range(2):
+            # Spawn near the center to make sure it stays on the grid long enough to be visible
+            r = main_app.env.rows // 2
+            c = main_app.env.cols // 2
+            
+            # Slightly fuzz the location if the grid is big enough
+            if main_app.env.rows > 2:
+                r += random.randint(-1, 1)
+            if main_app.env.cols > 2:
+                c += random.randint(-1, 1)
+                
+            r = max(0, min(main_app.env.rows - 1, r))
+            c = max(0, min(main_app.env.cols - 1, c))
+            
+            inter = main_app.env.grid[(r, c)]
+            
+            # Prefer crossing lanes (straight/left) to show off skipping red lights
+            lane_choices = [l for l in inter.lanes.keys() if "straight" in l or "left" in l]
+            lane = random.choice(lane_choices) if lane_choices else random.choice(list(inter.lanes.keys()))
+            
+            vtype = random.choices(main_app.env.vehicle_types, weights=main_app.env.vehicle_weights)[0]
+            
+            # Insert at the FRONT of the queue to visually skip the line immediately
+            inter.lanes[lane].insert(0, {"type": vtype, "wait_time": 0, "is_anomaly": True})
+            
+        main_app._push_alert("scenario", "⚠️ Rogue anomalies injected! Skipping lights and bypassing queues.")
 
     return {"status": "success", "config": config.model_dump()}
 

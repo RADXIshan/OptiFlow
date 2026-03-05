@@ -5,7 +5,7 @@ import {
 } from 'recharts';
 import {
   Activity, Car, Clock, ShieldAlert, AlertTriangle, Info, X,
-  Download, Bell, CheckCircle, Cpu, Wind, Timer, TrendingUp
+  Download, Bell, CheckCircle, Cpu, Wind, Timer, TrendingUp, Flame
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -113,6 +113,7 @@ export default function DashboardView({ state }) {
 
     const totalVehicles = validVehicles.length;
     const ambulanceCount = validVehicles.filter(v => v.type === 'ambulance').length;
+    const anomalyCount = validVehicles.filter(v => v.is_anomaly).length;
     const totalWaitTime = validVehicles.reduce((a, v) => a + v.wait_time * 0.8, 0);
     const avgWaitTime = totalVehicles > 0 ? parseFloat((totalWaitTime / totalVehicles).toFixed(1)) : 0;
     const maxWaitTime = totalVehicles > 0 ? parseFloat((Math.max(...validVehicles.map(v => v.wait_time)) * 0.8).toFixed(1)) : 0;
@@ -126,7 +127,7 @@ export default function DashboardView({ state }) {
       if (prev.length > 0 && prev[prev.length - 1].step === state.step && prev[prev.length - 1].view === viewMode + selectedCrossroad) return prev;
       const pt = {
         time: timeStr, elapsed, wait: avgWaitTime, maxWait: maxWaitTime,
-        vehicles: totalVehicles, ambulances: ambulanceCount,
+        vehicles: totalVehicles, ambulances: ambulanceCount, anomalies: anomalyCount,
         step: state.step, view: viewMode + selectedCrossroad,
         congestion: congestionLabel,
         actualCO2: parseFloat(actualEmissions.toFixed(3)),
@@ -148,7 +149,14 @@ export default function DashboardView({ state }) {
 
   const vehicleTypeDistribution = useMemo(() => {
     if (!validVehicles.length) return [];
-    const counts = validVehicles.reduce((a, v) => { a[v.type] = (a[v.type] || 0) + 1; return a; }, {});
+    const counts = validVehicles.reduce((a, v) => { 
+        if (v.is_anomaly) {
+            a['anomaly'] = (a['anomaly'] || 0) + 1;
+        } else {
+            a[v.type] = (a[v.type] || 0) + 1; 
+        }
+        return a; 
+    }, {});
     return Object.entries(counts).map(([name, value]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), value })).filter(i => i.value > 0);
   }, [validVehicles]);
 
@@ -165,6 +173,7 @@ export default function DashboardView({ state }) {
 
   const totalVehicles = validVehicles.length;
   const ambulances    = validVehicles.filter(v => v.type === 'ambulance').length;
+  const anomalies     = validVehicles.filter(v => v.is_anomaly).length;
   const totalWaitTime = validVehicles.reduce((a, v) => a + v.wait_time * 0.8, 0);
   const avgWaitTime   = totalVehicles > 0 ? parseFloat((totalWaitTime / totalVehicles).toFixed(1)) : 0;
   const maxWaitTime   = totalVehicles > 0 ? parseFloat((Math.max(...validVehicles.map(v => v.wait_time)) * 0.8).toFixed(1)) : 0;
@@ -186,7 +195,7 @@ export default function DashboardView({ state }) {
   }
   const laneChartData = Object.keys(laneTotals).map(lane => ({ name: lane.replace('_', ' '), queueSize: laneTotals[lane] }));
 
-  const COLORS = { Car: '#3b82f6', Truck: '#8b5cf6', Bus: '#f59e0b', Bike: '#ec4899', Ambulance: '#ef4444' };
+  const COLORS = { Car: '#3b82f6', Truck: '#8b5cf6', Bus: '#f59e0b', Bike: '#ec4899', Ambulance: '#ef4444', Anomaly: '#22d3ee' };
 
   const filteredHistory = history.filter(h => h.view === viewMode + selectedCrossroad);
   let vehicleTrend = 0, waitTrend = 0, maxWaitTrend = 0;
@@ -324,12 +333,22 @@ export default function DashboardView({ state }) {
         <MetricCard title="Active Vehicles" value={totalVehicles} icon={<Car className="text-blue-400" />} trend={trendStr(vehicleTrend)} trendColor={trendClr(vehicleTrend)} />
         <MetricCard title="Avg Queue Wait"  value={`${avgWaitTime}s`} icon={<Clock className="text-amber-400" />} trend={trendStr(waitTrend, 's')} trendColor={trendClr(waitTrend)} />
         <MetricCard title="Max Queue Wait"  value={`${maxWaitTime}s`} icon={<AlertTriangle className="text-red-400" />} trend={trendStr(maxWaitTrend, 's')} trendColor={trendClr(maxWaitTrend)} />
-        <MetricCard
-          title="Critical Response"
-          value={ambulances}
-          subtitle="Ambulances Active"
-          icon={<ShieldAlert className={ambulances > 0 ? 'text-red-500 animate-pulse' : 'text-zinc-500'} />}
-        />
+        
+        <div className="grid grid-cols-2 gap-4 col-span-1 md:col-span-2 xl:col-span-1">
+          <MetricCard
+            title="Critical"
+            value={ambulances}
+            subtitle="Ambulances Active"
+            icon={<ShieldAlert className={ambulances > 0 ? 'text-red-500 animate-pulse' : 'text-zinc-500'} />}
+          />
+          <MetricCard
+            title="Rogue"
+            value={anomalies}
+            subtitle="Anomalies Active"
+            icon={<Flame className={anomalies > 0 ? 'text-cyan-400 animate-pulse drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]' : 'text-zinc-500'} />}
+          />
+        </div>
+
         <MetricCard
           title={`Phase (${viewMode === 'city' ? 'City' : `Node ${selectedCrossroad.replace('_', ',')}`})`}
           value={viewMode === 'crossroad'
